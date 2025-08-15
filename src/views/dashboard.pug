@@ -1,0 +1,44 @@
+extends layout
+
+block content
+  .max-w-3xl.mx-auto.mt-10.bg-white.p-8.rounded.shadow
+    h2.text-2xl.font-bold.mb-6.text-center Your Collections
+    
+    .mb-6.p-4.border.rounded.bg-gray-50
+      if notionConnected
+        .flex.items-center.justify-between
+          .flex.items-center
+            svg.h-6.w-6.text-black.mr-2(fill="currentColor" viewBox="0 0 24 24")
+              path(d="M4.027 13.688c0-.11.086-.2.192-.2h5.726c.106 0 .192.09.192.2v3.497c0 .11-.086.2-.192.2H4.22c-.106 0-.192-.09-.192-.2v-3.497z")
+              path(d="M12.270 17.555a.194.194 0 0 1-.195-.192V3.2c0-.106.086-.192.192-.192h5.737c.106 0 .192.086.192.192v10.368a.194.194 0 0 1-.195.192h-5.73z")
+            div
+              h3.text-lg.font-semibold Connected to Notion
+              p.text-sm.text-gray-600 Your todos can be exported to Notion
+          a(href="/notion/disconnect" class="text-sm text-red-500 hover:text-red-700") Disconnect
+      else
+        .flex.items-center.justify-between
+          .flex.items-center
+            svg.h-6.w-6.text-gray-400.mr-2(fill="currentColor" viewBox="0 0 24 24")
+              path(d="M4.027 13.688c0-.11.086-.2.192-.2h5.726c.106 0 .192.09.192.2v3.497c0 .11-.086.2-.192.2H4.22c-.106 0-.192-.09-.192-.2v-3.497z")
+              path(d="M12.270 17.555a.194.194 0 0 1-.195-.192V3.2c0-.106.086-.192.192-.192h5.737c.106 0 .192.086.192.192v10.368a.194.194 0 0 1-.195.192h-5.73z")
+            div
+              h3.text-lg.font-semibold Connect to Notion
+              p.text-sm.text-gray-600 Export your todos to Notion
+          a(href="/notion/connect" class="px-3 py-1 bg-black text-white rounded hover:bg-gray-800 text-sm") Connect
+    
+    if collections.length === 0
+      p.text-center.text-gray-500.mb-4 You don't have any collections yet. Create one below.
+    else
+      ul
+        each collection in collections
+          li.mb-4.border-b.pb-2.flex.justify-between.items-center
+            span.font-semibold= collection.name
+            .flex.items-center
+              a(href=`/collections/${collection.id}/todos` class="text-sm text-blue-500 hover:text-blue-700 mr-3") View Todos
+              form(action=`/collections/${collection.id}?_method=DELETE` method="post" style="display:inline")
+                button(type="submit" class="text-red-500 text-sm hover:text-red-700") Delete
+    
+    form(action="/collections" method="post" class="mt-6")
+      .flex
+        input(type="text" name="name" placeholder="New Collection Name" required class="flex-1 p-2 border rounded-l")
+        button(type="submit" class="bg-green-600 text-white px-4 py-2 rounded-r hover:bg-green-700") Add

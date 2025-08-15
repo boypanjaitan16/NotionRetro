@@ -1,0 +1,39 @@
+import { Collection } from '../models/Collection';
+import pool from '../utils/db';
+
+export async function createCollection(userId: number, name: string): Promise<Collection> {
+  const [result] = await pool.query(
+    'INSERT INTO collections (userId, name) VALUES (?, ?)',
+    [userId, name]
+  );
+  // @ts-ignore
+  const id = result.insertId;
+  return { id, userId, name };
+}
+
+export async function getCollectionsByUser(userId: number): Promise<Collection[]> {
+  const [rows] = await pool.query(
+    'SELECT * FROM collections WHERE userId = ?',
+    [userId]
+  );
+  // @ts-ignore
+  return rows;
+}
+
+export async function getCollectionById(id: number): Promise<Collection | undefined> {
+  const [rows] = await pool.query(
+    'SELECT * FROM collections WHERE id = ?',
+    [id]
+  );
+  // @ts-ignore
+  return rows.length > 0 ? rows[0] : undefined;
+}
+
+export async function deleteCollection(id: number): Promise<boolean> {
+  const [result] = await pool.query(
+    'DELETE FROM collections WHERE id = ?',
+    [id]
+  );
+  // @ts-ignore
+  return result.affectedRows > 0;
+}

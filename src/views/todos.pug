@@ -1,0 +1,165 @@
+extends layout
+
+block content
+  .max-w-2xl.mx-auto.mt-10.bg-white.p-8.rounded.shadow
+    .flex.justify-between.items-center.mb-6
+      a(href="/collections" class="text-blue-600 hover:text-blue-800")
+        .flex.items-center
+          svg(xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor")
+            path(stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7")
+          span Back to Collections
+      h2.text-2xl.font-bold.text-center Todo List
+    
+    if success === 'exported'
+      .bg-green-100.border.border-green-400.text-green-700.px-4.py-3.rounded.relative.mb-4
+        span(class="block sm:inline") Success! Exported to Notion database.
+    
+    if success === 'exported_to_page'
+      .bg-green-100.border.border-green-400.text-green-700.px-4.py-3.rounded.relative.mb-4
+        span(class="block sm:inline") Success! Exported to Notion page.
+    
+    if databaseCreated
+      .bg-green-100.border.border-green-400.text-green-700.px-4.py-3.rounded.relative.mb-4
+        span(class="block sm:inline") Successfully created Notion database. You can now export your todos.
+        
+    if pageCreated
+      .bg-green-100.border.border-green-400.text-green-700.px-4.py-3.rounded.relative.mb-4
+        span(class="block sm:inline") Successfully created Notion page. You can now export your todos.
+        
+    if error
+      .bg-red-100.border.border-red-400.text-red-700.px-4.py-3.rounded.relative.mb-4
+        if error === 'export_failed'
+          span(class="block sm:inline") Failed to export to Notion. Please try again.
+        else if error === 'no_todos_to_export'
+          span(class="block sm:inline") No todos to export. Please add some todos first.
+        else if error.startsWith('export_failed:')
+          span(class="block sm:inline") Failed to export to Notion: #{error.substring(14)}
+        else
+          span(class="block sm:inline") Error: #{error}
+    
+    if todos.length === 0
+      .bg-yellow-100.border.border-yellow-400.text-yellow-700.px-4.py-3.rounded.relative.mb-4
+        span(class="block sm:inline") This collection has no todos yet. Add some todos before exporting.
+        
+    ul
+      each todo in todos
+        li.mb-4.flex.justify-between.items-center
+          span= todo.title
+          if todo.completed
+            span.text-green-600.font-bold Completed
+          else
+            form(action=`/collections/todos/${todo.id}?collectionId=${collectionId}` method="post" style="display:inline")
+              input(type="hidden" name="_method" value="PUT")
+              input(type="hidden" name="completed" value="true")
+              button(type="submit" class="ml-2 text-blue-500 text-xs") Mark Completed
+          form(action=`/collections/todos/${todo.id}?collectionId=${collectionId}` method="post" style="display:inline")
+            input(type="hidden" name="_method" value="DELETE")
+            button(type="submit" class="ml-2 text-red-500 text-xs") Delete
+    form(action=`/collections/${collectionId}/todos` method="post" class="mt-6 flex")
+      input(type="text" name="title" placeholder="New Todo" required class="flex-1 p-2 border rounded mr-2")
+      button(type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700") Add Todo
+    
+    .mt-8.border-t.pt-6
+      .flex.justify-between.items-center.mb-4
+        h3.text-xl.font-bold Notion Integration
+        if !notionConnected
+          a(href="/notion/connect" class="text-blue-600 underline hover:text-blue-800") Connect with Notion
+      
+      //- Debug: #{notionConnected ? 'Connected' : 'Not connected'}
+      
+      if !notionConnected
+        .bg-gray-50.p-4.rounded.border.mb-4
+          div
+            h4.font-semibold.mb-2 Connect to Notion
+            p.text-sm.text-gray-600.mb-4 Export your todos to Notion for better organization
+          
+          a(href="/notion/connect" class="block w-full text-center py-3 bg-black text-white rounded-md hover:bg-gray-800 font-medium") 
+            span Connect with Notion
+            svg.inline-block.ml-2.h-5.w-5(xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor")
+              path(d="M416 32H31.9C14.3 32 0 46.5 0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6 0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3zM135.4 416H69V202.2h66.5V416zm-33.2-243c-21.3 0-38.5-17.3-38.5-38.5S80.9 96 102.2 96c21.2 0 38.5 17.3 38.5 38.5 0 21.3-17.2 38.5-38.5 38.5zm282.1 243h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9V416z")
+      else if databases && databases.length > 0
+        .mb-4
+          h3.text-lg.font-semibold.mb-3 Export Options
+          
+          //- Export format selector
+          .mb-4
+            label.block.text-sm.font-medium.text-gray-700.mb-1 Export Format
+            select#exportFormatSelector.w-full.p-2.border.rounded.mb-2
+              option(value="database") Database (Table View)
+              option(value="page") Page (Checklist View)
+          
+          //- Database export section
+          #databaseExportSection
+            form(action="/notion/export" method="post")
+              input(type="hidden" name="collectionId" value=collectionId)
+              .mb-4
+                label.block.text-sm.font-medium.text-gray-700.mb-1(for="databaseId") Select Notion Database
+                select(name="databaseId" id="databaseId" required class="w-full p-2 border rounded")
+                  each db in databases
+                    option(value=db.id selected=(selectedDatabaseId === db.id))= db.title
+              button(type="submit" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 mb-4") Export to Database
+            
+            .mt-4.border-t.pt-4
+              h4.font-semibold.mb-2 Create Another Database
+              form(action="/notion/create-database" method="post")
+                input(type="hidden" name="collectionId" value=collectionId)
+                .mb-4
+                  label.block.text-sm.font-medium.text-gray-700.mb-1(for="dbName") New Database Name
+                  input(type="text" name="name" id="dbName" placeholder="Database Name" required class="w-full p-2 border rounded")
+                button(type="submit" class="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700") Create Database
+          
+          //- Page export section
+          #pageExportSection.hidden
+            if pages && pages.length > 0
+              form(action="/notion/export-to-page" method="post")
+                input(type="hidden" name="collectionId" value=collectionId)
+                .mb-4
+                  label.block.text-sm.font-medium.text-gray-700.mb-1(for="pageId") Select Notion Page
+                  select(name="pageId" id="pageId" required class="w-full p-2 border rounded")
+                    each page in pages
+                      option(value=page.id selected=(selectedPageId === page.id))= page.title
+                button(type="submit" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 mb-4") Export to Page
+            
+            .mt-4.border-t.pt-4
+              h4.font-semibold.mb-2 Create New Page
+              form(action="/notion/create-page" method="post")
+                input(type="hidden" name="collectionId" value=collectionId)
+                .mb-4
+                  label.block.text-sm.font-medium.text-gray-700.mb-1(for="pageName") New Page Name
+                  input(type="text" name="name" id="pageName" placeholder="Page Name" required class="w-full p-2 border rounded")
+                button(type="submit" class="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700") Create Page
+      else
+        .bg-gray-50.p-4.rounded.border.mb-4
+          h4.font-semibold No Notion Databases or Pages Found
+          p.text-sm.text-gray-600.mb-3 You need to create a database or page in Notion first
+        
+        .mb-4
+          h3.text-lg.font-semibold.mb-3 Create Notion Integration
+          
+          //- Create type selector
+          .mb-4
+            label.block.text-sm.font-medium.text-gray-700.mb-1 Create Type
+            select#createTypeSelector.w-full.p-2.border.rounded.mb-2
+              option(value="database") Database (Table View)
+              option(value="page") Page (Checklist View)
+          
+          //- Database creation section
+          #databaseCreateSection
+            form(action="/notion/create-database" method="post")
+              input(type="hidden" name="collectionId" value=collectionId)
+              .mb-4
+                label.block.text-sm.font-medium.text-gray-700.mb-1(for="dbCreateName") Create a New Database
+                input(type="text" name="name" id="dbCreateName" placeholder="Database Name" required class="w-full p-2 border rounded")
+              button(type="submit" class="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 mb-4") Create Database
+          
+          //- Page creation section
+          #pageCreateSection.hidden
+            form(action="/notion/create-page" method="post")
+              input(type="hidden" name="collectionId" value=collectionId)
+              .mb-4
+                label.block.text-sm.font-medium.text-gray-700.mb-1(for="pageCreateName") Create a New Page
+                input(type="text" name="name" id="pageCreateName" placeholder="Page Name" required class="w-full p-2 border rounded")
+              button(type="submit" class="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 mb-4") Create Page
+    
+    .mt-4
+      a(href="/collections" class="block text-center text-blue-600 hover:text-blue-800") Back to Collections
