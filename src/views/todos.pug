@@ -41,24 +41,29 @@ block content
       .bg-yellow-100.border.border-yellow-400.text-yellow-700.px-4.py-3.rounded.relative.mb-4
         span(class="block sm:inline") This collection has no todos yet. Add some todos before exporting.
         
-    ul
+    div.flex.flex-col
       each todo in todos
-        li.mb-4.flex.justify-between.items-center
-          span= todo.title
-          if todo.completed
-            span.text-green-600.font-bold Completed
-          else
+        div.flex.flex-row.px-5.py-3.border
+          div.flex.flex-grow.flex-row.items-center.gap-3
+            span= todo.title
+            if todo.completed
+              i.fas.fa-circle-check.text-green-600
+          div.flex.flex-row.items-center.gap-3
+            if !todo.completed
+              form(action=`/collections/todos/${todo.id}?collectionId=${collectionId}` method="post" style="display:inline")
+                input(type="hidden" name="_method" value="PUT")
+                input(type="hidden" name="completed" value="true")
+                button(type="submit" class="ml-2 text-blue-500 text-xs") Mark Completed
             form(action=`/collections/todos/${todo.id}?collectionId=${collectionId}` method="post" style="display:inline")
-              input(type="hidden" name="_method" value="PUT")
-              input(type="hidden" name="completed" value="true")
-              button(type="submit" class="ml-2 text-blue-500 text-xs") Mark Completed
-          form(action=`/collections/todos/${todo.id}?collectionId=${collectionId}` method="post" style="display:inline")
-            input(type="hidden" name="_method" value="DELETE")
-            button(type="submit" class="ml-2 text-red-500 text-xs") Delete
+              input(type="hidden" name="_method" value="DELETE")
+              button(type="submit" class="ml-2 text-red-500 text-xs") 
+                i.fas.fa-trash-alt
     form(action=`/collections/${collectionId}/todos` method="post" class="mt-6 flex")
       input(type="text" name="title" placeholder="New Todo" required class="flex-1 p-2 border rounded mr-2")
-      button(type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700") Add Todo
-    
+      button(type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700") 
+        i.fas.fa-plus.mr-1
+        span Save Todo
+
     .mt-8.border-t.pt-6
       .flex.justify-between.items-center.mb-4
         h3.text-xl.font-bold Notion Integration
@@ -104,7 +109,6 @@ block content
               form(action="/notion/create-database" method="post")
                 input(type="hidden" name="collectionId" value=collectionId)
                 .mb-4
-                  label.block.text-sm.font-medium.text-gray-700.mb-1(for="dbName") New Database Name
                   input(type="text" name="name" id="dbName" placeholder="Database Name" required class="w-full p-2 border rounded")
                 button(type="submit" class="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700") Create Database
           
@@ -160,6 +164,3 @@ block content
                 label.block.text-sm.font-medium.text-gray-700.mb-1(for="pageCreateName") Create a New Page
                 input(type="text" name="name" id="pageCreateName" placeholder="Page Name" required class="w-full p-2 border rounded")
               button(type="submit" class="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 mb-4") Create Page
-    
-    .mt-4
-      a(href="/collections" class="block text-center text-blue-600 hover:text-blue-800") Back to Collections

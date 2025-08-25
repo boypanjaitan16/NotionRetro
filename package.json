@@ -4,10 +4,12 @@
   "description": "Notion integration app",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon --watch src --ext ts --exec ts-node src/index.ts",
-    "build": "tsc",
+    "dev": "concurrently \"npm run watch:css\" \"nodemon --watch src --ext ts,pug --exec ts-node src/index.ts\"",
+    "build": "npm run build:css && tsc",
     "start": "node dist/index.js",
-    "update-db": "node scripts/updateUserTable.js"
+    "update-db": "node scripts/updateUserTable.js",
+    "build:css": "tailwindcss -i ./src/styles/tailwind.css -o ./public/css/tailwind.css",
+    "watch:css": "tailwindcss -i ./src/styles/tailwind.css -o ./public/css/tailwind.css --watch"
   },
   "author": "",
   "license": "ISC",
@@ -28,6 +30,7 @@
     "@types/dotenv": "^6.1.1",
     "@types/express": "^5.0.3",
     "@types/node": "^24.2.1",
+    "concurrently": "^9.2.0",
     "nodemon": "^3.1.10",
     "tailwindcss": "^3.4.17",
     "ts-node": "^10.9.2",

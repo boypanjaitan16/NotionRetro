@@ -6,8 +6,9 @@ export async function create(req: Request, res: Response) {
   const userId = req.user.id;
   const { name } = req.body;
   if (!name) return res.status(400).json({ error: 'Name required' });
-  const collection = await createCollection(userId, name);
-  return res.json(collection);
+  await createCollection(userId, name);
+  // Redirect to the collections page which renders the dashboard
+  return res.redirect('/collections');
 }
 
 export async function list(req: Request, res: Response) {
@@ -27,5 +28,5 @@ export async function remove(req: Request, res: Response) {
   const { id } = req.params;
   const success = await deleteCollection(Number(id));
   if (!success) return res.status(404).json({ error: 'Not found' });
-  return res.json({ success: true });
+  return res.redirect('/collections');
 }

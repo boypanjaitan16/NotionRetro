@@ -23,7 +23,7 @@ export async function getTodosByCollection(collectionId: number): Promise<Todo[]
 export async function updateTodo(id: number, completed: boolean): Promise<Todo | undefined> {
   const [result] = await pool.query(
     'UPDATE todos SET completed = ? WHERE id = ?',
-    [completed, id]
+    [completed ? 1 : 0, id]
   );
   // @ts-ignore
   if (result.affectedRows === 0) return undefined;
