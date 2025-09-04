@@ -1,15 +1,15 @@
-import mysql from 'mysql2/promise';
-import dotenv from 'dotenv';
+import dotenv from "dotenv";
+import mysql from "mysql2/promise";
 
 dotenv.config();
 
 // Configure MySQL connection
 const config = {
-  host: process.env['DB_HOST'] || 'localhost',
-  port: parseInt(process.env['DB_PORT'] || '3306'),
-  user: process.env['DB_USER'] || 'notionuser',
-  password: process.env['DB_PASSWORD'] || 'notionpass',
-  database: process.env['DB_NAME'] || 'notionretro'
+	host: process.env["DB_HOST"] || "localhost",
+	port: parseInt(process.env["DB_PORT"] || "3306"),
+	user: process.env["DB_USER"] || "notionuser",
+	password: process.env["DB_PASSWORD"] || "notionpass",
+	database: process.env["DB_NAME"] || "notionretro",
 };
 
 // Create MySQL connection pool
@@ -17,22 +17,22 @@ const pool = mysql.createPool(config);
 
 // Test the connection
 async function testConnection() {
-  try {
-    const connection = await pool.getConnection();
-    console.log('MySQL connection established');
-    connection.release();
-  } catch (error) {
-    console.error('MySQL connection error:', error);
-  }
+	try {
+		const connection = await pool.getConnection();
+		console.log("MySQL connection established");
+		connection.release();
+	} catch (error) {
+		console.error("MySQL connection error:", error);
+	}
 }
 
 // Initialize database tables
 async function initDb() {
-  try {
-    const connection = await pool.getConnection();
-    
-    // Create Users table
-    await connection.query(`
+	try {
+		const connection = await pool.getConnection();
+
+		// Create Users table
+		await connection.query(`
       CREATE TABLE IF NOT EXISTS users (
         id INT PRIMARY KEY AUTO_INCREMENT,
         email VARCHAR(255) NOT NULL UNIQUE,
@@ -45,8 +45,8 @@ async function initDb() {
       )
     `);
 
-    // Create Collections table
-    await connection.query(`
+		// Create Collections table
+		await connection.query(`
       CREATE TABLE IF NOT EXISTS collections (
         id INT PRIMARY KEY AUTO_INCREMENT,
         userId INT NOT NULL,
@@ -55,8 +55,8 @@ async function initDb() {
       )
     `);
 
-    // Create Todos table
-    await connection.query(`
+		// Create Todos table
+		await connection.query(`
       CREATE TABLE IF NOT EXISTS todos (
         id INT PRIMARY KEY AUTO_INCREMENT,
         collectionId INT NOT NULL,
@@ -66,11 +66,11 @@ async function initDb() {
       )
     `);
 
-    connection.release();
-    console.log('Database tables initialized');
-  } catch (error) {
-    console.error('Error initializing database tables:', error);
-  }
+		connection.release();
+		console.log("Database tables initialized");
+	} catch (error) {
+		console.error("Error initializing database tables:", error);
+	}
 }
 
 // Initialize DB on startup

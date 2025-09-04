@@ -1,5 +1,5 @@
 export interface Collection {
-  id: number;
-  userId: number;
-  name: string;
+	id: number;
+	userId: number;
+	name: string;
 }
