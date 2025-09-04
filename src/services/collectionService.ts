@@ -1,17 +1,35 @@
 import type { Collection } from "../models/Collection";
 import pool from "../utils/db";
+import { createNotionPage, removeNotionPage } from "./notionService";
+
+const REMOVE_PAGE_ON_COLLECTION_DELETION =
+	process.env["APP_REMOVE_PAGE_ON_COLLECTION_DELETION"];
 
 export async function createCollection(
+	accessToken: string,
 	userId: number,
 	name: string,
+	summary?: string,
 ): Promise<Collection> {
+	const { id: pageId } = await createNotionPage(accessToken, name, summary);
 	const [result] = await pool.query(
-		"INSERT INTO collections (userId, name) VALUES (?, ?)",
-		[userId, name],
+		"INSERT INTO collections (userId, name, summary, pageId) VALUES (?, ?, ?, ?)",
+		[userId, name, summary || null, pageId],
 	);
 	// @ts-expect-error
 	const id = result.insertId;
-	return { id, userId, name };
+	const collection: Collection = {
+		id,
+		userId,
+		name,
+		pageId,
+	};
+
+	if (summary) {
+		collection.summary = summary;
+	}
+
+	return collection;
 }
 
 export async function getCollectionsByUser(
@@ -35,10 +53,24 @@ export async function getCollectionById(
 	return rows.length > 0 ? rows[0] : undefined;
 }
 
-export async function deleteCollection(id: number): Promise<boolean> {
+export async function deleteCollection(
+	accessToken: string,
+	id: number,
+): Promise<boolean> {
+	const [rows] = await pool.query(
+		"SELECT pageId FROM collections WHERE id = ?",
+		[id],
+	);
 	const [result] = await pool.query("DELETE FROM collections WHERE id = ?", [
 		id,
 	]);
+
+	// @ts-expect-error
+	if (rows.length > 0 && REMOVE_PAGE_ON_COLLECTION_DELETION === "true") {
+		// @ts-expect-error
+		await removeNotionPage(accessToken, rows[0].pageId);
+	}
+
 	// @ts-expect-error
 	return result.affectedRows > 0;
 }

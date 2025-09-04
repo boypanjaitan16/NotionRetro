@@ -1,4 +1,7 @@
 import type { Request, Response } from "express";
+import type { Page } from "../models/Page";
+import { getCollectionById } from "../services/collectionService";
+import { getNotionPages } from "../services/notionService";
 import {
 	addTodo,
 	deleteTodo,
@@ -23,8 +26,6 @@ export async function add(req: Request, res: Response) {
 	}
 }
 
-import { getDatabases, getNotionPages } from "../services/notionService";
-
 export async function list(req: Request, res: Response) {
 	const { collectionId } = req.params;
 	const { success, error, databaseCreated, dbId, pageCreated, pageId } =
@@ -32,32 +33,28 @@ export async function list(req: Request, res: Response) {
 
 	try {
 		const todos = await getTodosByCollection(Number(collectionId));
-		// @ts-expect-error
+		const collection = await getCollectionById(Number(collectionId));
 		const accessToken = req.user?.notionAccessToken;
 		const notionConnected = !!accessToken;
-		let databases = [];
-		let pages = [];
+		let pages: Page[] = [];
 
 		if (accessToken) {
 			try {
-				console.log("Fetching databases for todo list view");
-				databases = await getDatabases(accessToken);
-				console.log(`Fetched ${databases.length} databases`);
-
 				console.log("Fetching pages for todo list view");
-				pages = await getNotionPages(accessToken);
+				pages = (await getNotionPages(accessToken)).sort((_, b) => {
+					return b.id === collection?.pageId ? 1 : -1;
+				});
 				console.log(`Fetched ${pages.length} pages`);
 			} catch (e) {
 				console.error("Error fetching Notion data:", e);
-				databases = [];
 				pages = [];
 			}
 		}
 
 		return res.render("todos", {
 			todos,
+			collection,
 			collectionId,
-			databases,
 			pages,
 			notionConnected,
 			success: success as string,

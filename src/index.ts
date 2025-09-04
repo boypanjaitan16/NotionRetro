@@ -34,10 +34,12 @@ import "./utils/db";
 import authRoutes from "./routes/authRoutes";
 import collectionRoutes from "./routes/collectionRoutes";
 import notionRoutes from "./routes/notionRoutes";
+import syncRoutes from "./routes/syncRoutes";
 
 app.use("/auth", authRoutes);
 app.use("/collections", collectionRoutes);
 app.use("/notion", notionRoutes);
+app.use("/sync", syncRoutes);
 
 // Use checkAuth middleware for the index route
 app.get("/", checkAuth, (req, res) => {

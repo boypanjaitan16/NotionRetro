@@ -11,7 +11,7 @@ export async function addTodo(
 	);
 	// @ts-expect-error
 	const id = result.insertId;
-	return { id, collectionId, title, completed: false };
+	return { id, collectionId, title, completed: 0 };
 }
 
 export async function getTodosByCollection(

@@ -7,7 +7,6 @@ export async function validateNotionAuth(
 	res: Response,
 	next: NextFunction,
 ) {
-	// @ts-expect-error
 	const user = req.user;
 
 	// If no user is logged in or user has no Notion token, proceed (the controller will handle this)
@@ -24,7 +23,6 @@ export async function validateNotionAuth(
 			console.log("Notion token has expired based on our records");
 			// Clear token data
 			// In a production app, you might implement a token refresh here
-			// @ts-expect-error
 			await updateNotionToken(user.id, null);
 			return res.redirect("/notion/connect?error=token_expired");
 		}
@@ -34,7 +32,6 @@ export async function validateNotionAuth(
 		if (!isValid) {
 			console.log("Notion token is invalid according to Notion API");
 			// Clear token data
-			// @ts-expect-error
 			await updateNotionToken(user.id, null);
 			return res.redirect("/notion/connect?error=token_invalid");
 		}

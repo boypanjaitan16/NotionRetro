@@ -1,4 +1,5 @@
 import axios from "axios";
+import type { Page } from "../models/Page";
 
 const NOTION_API_BASE_URL =
 	process.env["NOTION_API_BASE_URL"] || "https://api.notion.com/v1";
@@ -365,18 +366,19 @@ export async function exportCollectionToNotion(
 	}
 }
 
-export async function createNotionPage(accessToken: string, name: string) {
+export async function updateNotionPage(
+	accessToken: string,
+	pageId: string,
+	name: string,
+	summary?: string,
+): Promise<boolean> {
 	try {
-		console.log(`Creating new Notion page: ${name}`);
+		console.log(`Updating Notion page ${pageId} with new name/summary`);
 
-		// Create a new page in the user's workspace
-		const response = await axios.post(
-			`${NOTION_API_BASE_URL}/pages`,
+		// First, update the page title
+		await axios.patch(
+			`${NOTION_API_BASE_URL}/pages/${pageId}`,
 			{
-				parent: {
-					type: "workspace",
-					workspace: true,
-				},
 				properties: {
 					title: {
 						title: [
@@ -388,38 +390,154 @@ export async function createNotionPage(accessToken: string, name: string) {
 						],
 					},
 				},
-				children: [
-					{
-						object: "block",
-						type: "heading_2",
-						heading_2: {
-							rich_text: [
-								{ type: "text", text: { content: "Todo Collection" } },
-							],
-						},
-					},
-					{
-						object: "block",
-						type: "paragraph",
-						paragraph: {
-							rich_text: [
-								{
-									type: "text",
-									text: { content: "Exported from NotionRetro" },
-								},
-							],
-						},
-					},
-				],
 			},
 			{
 				headers: {
 					Authorization: `Bearer ${accessToken}`,
 					"Notion-Version": "2022-06-28",
 					"Content-Type": "application/json",
-					"Cache-Control": "no-cache, no-store, must-revalidate",
-					Pragma: "no-cache",
-					Expires: "0",
+				},
+			},
+		);
+
+		// Then, if there's a summary, we need to update the content blocks
+		if (summary) {
+			// First, get the existing blocks to find any existing summary paragraph
+			const blocksResponse = await axios.get(
+				`${NOTION_API_BASE_URL}/blocks/${pageId}/children`,
+				{
+					headers: {
+						Authorization: `Bearer ${accessToken}`,
+						"Notion-Version": "2022-06-28",
+					},
+				},
+			);
+
+			const blocks = blocksResponse.data.results;
+			let summaryBlockId = null;
+
+			// Look for the first paragraph block, which we'll consider the summary
+			for (const block of blocks) {
+				if (block.type === "paragraph") {
+					summaryBlockId = block.id;
+					break;
+				}
+			}
+
+			if (summaryBlockId) {
+				// Update the existing summary paragraph
+				await axios.patch(
+					`${NOTION_API_BASE_URL}/blocks/${summaryBlockId}`,
+					{
+						paragraph: {
+							rich_text: [
+								{
+									type: "text",
+									text: { content: summary },
+								},
+							],
+						},
+					},
+					{
+						headers: {
+							Authorization: `Bearer ${accessToken}`,
+							"Notion-Version": "2022-06-28",
+							"Content-Type": "application/json",
+						},
+					},
+				);
+			} else {
+				// Add a new summary paragraph block
+				await axios.patch(
+					`${NOTION_API_BASE_URL}/blocks/${pageId}/children`,
+					{
+						children: [
+							{
+								object: "block",
+								type: "paragraph",
+								paragraph: {
+									rich_text: [
+										{
+											type: "text",
+											text: { content: summary },
+										},
+									],
+								},
+							},
+						],
+					},
+					{
+						headers: {
+							Authorization: `Bearer ${accessToken}`,
+							"Notion-Version": "2022-06-28",
+							"Content-Type": "application/json",
+						},
+					},
+				);
+			}
+		}
+
+		console.log(`Successfully updated Notion page ${pageId}`);
+		return true;
+	} catch (error: any) {
+		console.error(`Error updating Notion page ${pageId}:`, error);
+		if (error.response) {
+			console.error("Error response status:", error.response.status);
+			console.error(
+				"Error response data:",
+				JSON.stringify(error.response.data, null, 2),
+			);
+		}
+		return false;
+	}
+}
+
+export async function createNotionPage(
+	accessToken: string,
+	name: string,
+	summary?: string,
+) {
+	try {
+		console.log(`Creating Notion page with name: ${name}`);
+
+		// Create a new page in the user's Notion workspace
+		const response = await axios.post(
+			`${NOTION_API_BASE_URL}/pages`,
+			{
+				parent: { type: "workspace", workspace: true },
+				properties: {
+					title: {
+						title: [
+							{
+								text: {
+									content: name,
+								},
+							},
+						],
+					},
+				},
+				children: summary
+					? [
+							{
+								object: "block",
+								type: "paragraph",
+								paragraph: {
+									rich_text: [
+										{
+											type: "text",
+											text: { content: summary },
+										},
+									],
+								},
+							},
+						]
+					: [],
+			},
+			{
+				headers: {
+					Authorization: `Bearer ${accessToken}`,
+					"Notion-Version": "2022-06-28",
+					"Content-Type": "application/json",
 				},
 			},
 		);
@@ -531,7 +649,7 @@ export async function exportCollectionToNotionPage(
 	}
 }
 
-export async function getNotionPages(accessToken: string) {
+export async function getNotionPages(accessToken: string): Promise<Page[]> {
 	try {
 		console.log("Fetching Notion pages...");
 
@@ -539,8 +657,8 @@ export async function getNotionPages(accessToken: string) {
 			`${NOTION_API_BASE_URL}/search`,
 			{
 				filter: {
-					value: "page",
 					property: "object",
+					value: "page",
 				},
 				sort: {
 					direction: "descending",
@@ -559,27 +677,53 @@ export async function getNotionPages(accessToken: string) {
 			},
 		);
 
-		const pages = response.data.results.map((page: any) => {
-			let title = "Untitled Page";
-			if (
-				page.properties &&
-				page.properties.title &&
-				page.properties.title.title
-			) {
-				const titleArray = page.properties.title.title;
-				if (titleArray.length > 0 && titleArray[0].plain_text) {
-					title = titleArray[0].plain_text;
+		console.log(
+			`Retrieved ${response.data.results.length} total pages from Notion`,
+		);
+
+		const pages = response.data.results
+			// Filter to only include pages where parent.type is "workspace"
+			.filter((page: any) => {
+				const isWorkspacePage = page.parent?.type === "workspace";
+				if (!isWorkspacePage) {
+					console.log(
+						`Filtering out page with parent type: ${page.parent?.type}`,
+					);
 				}
-			}
+				return isWorkspacePage;
+			})
+			.map((page: any) => {
+				let title = "Untitled Page";
+				if (
+					page.properties &&
+					page.properties.title &&
+					page.properties.title.title
+				) {
+					const titleArray = page.properties.title.title;
+					if (titleArray.length > 0 && titleArray[0].plain_text) {
+						title = titleArray[0].plain_text;
+					}
+				}
 
-			return {
-				id: page.id,
-				title: title,
-				url: page.url,
-			};
-		});
+				return {
+					id: page.id,
+					title: title,
+					url: page.url,
+					parent: page.parent,
+				};
+			});
 
-		console.log(`Found ${pages.length} Notion pages`);
+		console.log(
+			`Found ${pages.length} Notion pages that are direct children of the workspace`,
+		);
+
+		// If no workspace pages were found, log a helpful message
+		if (pages.length === 0) {
+			console.log(
+				"No workspace pages found. Make sure you have created pages directly in your workspace.",
+			);
+		}
+
 		return pages;
 	} catch (error: any) {
 		console.error("Error fetching Notion pages:", error);
@@ -594,5 +738,132 @@ export async function getNotionPages(accessToken: string) {
 		}
 
 		throw error;
+	}
+}
+
+/**
+ * Removes a Notion page by its ID
+ * @param accessToken The Notion API access token
+ * @param pageId The ID of the page to remove
+ * @returns A boolean indicating whether the operation was successful
+ */
+export async function removeNotionPage(
+	accessToken: string,
+	pageId: string,
+): Promise<boolean> {
+	try {
+		console.log(`Attempting to remove Notion page ${pageId}`);
+
+		// Since we can't archive workspace-level pages via API,
+		// we'll try a different approach - empty the page content
+
+		// First, check if this is a workspace-level page
+		const pageInfo = await axios.get(`${NOTION_API_BASE_URL}/pages/${pageId}`, {
+			headers: {
+				Authorization: `Bearer ${accessToken}`,
+				"Notion-Version": "2022-06-28",
+			},
+		});
+
+		const isWorkspacePage =
+			pageInfo.data.parent?.type === "workspace" ||
+			pageInfo.data.parent?.workspace === true;
+
+		if (isWorkspacePage) {
+			console.log(
+				`Page ${pageId} is a workspace-level page. Cannot archive via API.`,
+			);
+
+			// Instead of archiving, we'll get all blocks and delete them
+			const blocksResponse = await axios.get(
+				`${NOTION_API_BASE_URL}/blocks/${pageId}/children`,
+				{
+					headers: {
+						Authorization: `Bearer ${accessToken}`,
+						"Notion-Version": "2022-06-28",
+					},
+				},
+			);
+
+			// Delete each block
+			const deletePromises = blocksResponse.data.results.map(
+				(block: { id: string }) => {
+					return axios.delete(`${NOTION_API_BASE_URL}/blocks/${block.id}`, {
+						headers: {
+							Authorization: `Bearer ${accessToken}`,
+							"Notion-Version": "2022-06-28",
+						},
+					});
+				},
+			);
+
+			// Execute all delete requests
+			if (deletePromises.length > 0) {
+				await Promise.all(deletePromises);
+				console.log(
+					`Removed ${deletePromises.length} blocks from page ${pageId}`,
+				);
+			}
+
+			// Update the page title to indicate it's been deleted
+			await axios.patch(
+				`${NOTION_API_BASE_URL}/pages/${pageId}`,
+				{
+					properties: {
+						title: {
+							title: [
+								{
+									text: {
+										content:
+											"[DELETED] This page was removed by NotionRetro app",
+									},
+								},
+							],
+						},
+					},
+				},
+				{
+					headers: {
+						Authorization: `Bearer ${accessToken}`,
+						"Notion-Version": "2022-06-28",
+						"Content-Type": "application/json",
+					},
+				},
+			);
+
+			console.log(`Successfully emptied and marked page ${pageId} as deleted`);
+			return true;
+		} else {
+			// For non-workspace pages, we can try the archive functionality
+			await axios.patch(
+				`${NOTION_API_BASE_URL}/pages/${pageId}`,
+				{
+					archived: true,
+				},
+				{
+					headers: {
+						Authorization: `Bearer ${accessToken}`,
+						"Notion-Version": "2022-06-28",
+						"Content-Type": "application/json",
+					},
+				},
+			);
+
+			console.log(`Successfully archived Notion page ${pageId}`);
+			return true;
+		}
+	} catch (error) {
+		console.error(`Error removing Notion page ${pageId}:`, error);
+		if (error instanceof Error && "response" in error) {
+			const axiosError = error as unknown as {
+				response?: { status?: number; data?: unknown };
+			};
+			console.error("Error response status:", axiosError.response?.status);
+			console.error(
+				"Error response data:",
+				JSON.stringify(axiosError.response?.data, null, 2),
+			);
+		}
+		return false;
 	}
 }

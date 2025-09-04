@@ -148,7 +148,6 @@ export async function exportToNotion(req: Request, res: Response) {
 }
 
 export async function getPages(req: Request, res: Response) {
-	// @ts-expect-error
 	const accessToken = req.user?.notionAccessToken;
 
 	if (!accessToken) {
