@@ -1,0 +1,51 @@
+extends layout
+
+block content
+  .max-w-3xl.mx-auto.mt-10.bg-white.p-8.rounded.shadow
+    h2.text-2xl.font-bold.mb-6.text-center Your Collections
+
+    .mb-6.p-4.border.rounded.bg-gray-50
+      if notionConnected
+        .flex.items-center.justify-between
+          .flex.items-center
+            i.fab.fa-notion.text-black.text-xl.mr-2
+            div
+              h3.text-lg.font-semibold Connected to Notion
+              p.text-sm.text-gray-600 Your todos can be exported to Notion
+          a(href="/notion/disconnect" class="text-sm text-red-500 hover:text-red-700") Disconnect
+      else
+        div.flex.items-center.justify-between
+          div.flex.items-center
+            svg.h-6.w-6.text-gray-400.mr-2(fill="currentColor" viewBox="0 0 24 24")
+              path(d="M4.027 13.688c0-.11.086-.2.192-.2h5.726c.106 0 .192.09.192.2v3.497c0 .11-.086.2-.192.2H4.22c-.106 0-.192-.09-.192-.2v-3.497z")
+              path(d="M12.270 17.555a.194.194 0 0 1-.195-.192V3.2c0-.106.086-.192.192-.192h5.737c.106 0 .192.086.192.192v10.368a.194.194 0 0 1-.195.192h-5.73z")
+            div
+              h3.text-lg.font-semibold Connect to Notion
+              p.text-sm.text-gray-600 Export your todos to Notion
+          a(href="/notion/connect" class="px-3 py-1 bg-black text-white rounded hover:bg-gray-800 text-sm") Connect
+
+    if collections.length === 0
+      p.text-center.text-gray-500.mb-4 You don't have any collections yet. Create one below.
+    else
+      div.flex.flex-col.gap-4
+        each collection in collections
+          div.border.p-5.rounded-lg
+            div.flex.justify-between.items-center
+              div
+                span.font-semibold= collection.name
+                if collection.summary
+                  p.text-sm.text-gray-600.mt-1= collection.summary
+              div.flex.items-center.gap-3
+                a(href=`/collections/${collection.id}/todos` class="text-sm text-blue-500 hover:text-blue-700 mr-3 flex items-center")
+                  span View
+                form(action=`/collections/${collection.id}?_method=DELETE` method="post" style="display:inline")
+                  button(type="submit" class="text-red-500 text-sm hover:text-red-700 flex items-center")
+                    i.fas.fa-trash-alt
+
+    form(action="/collections" method="post" class="mt-6")
+      div.flex.flex-col.gap-2
+        input(type="text" name="name" placeholder="New Collection Name" required class="p-2 border rounded")
+        textarea(name="summary" placeholder="Collection Summary (optional)" class="p-2 border rounded" rows="3")
+        button(type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 flex items-center justify-center")
+          i.fas.fa-plus.mr-1
+          span Create Collection

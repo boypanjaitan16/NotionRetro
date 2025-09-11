@@ -1,0 +1,4 @@
+/** biome-ignore-all lint/suspicious/noUnknownAtRules: <explanation> */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
