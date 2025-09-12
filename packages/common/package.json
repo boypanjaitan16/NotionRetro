@@ -1,0 +1,31 @@
+{
+	"name": "@nretro/common",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.js",
+	"scripts": {
+		"dev": "tsc --watch",
+		"build": "tsc",
+		"lint": "biome check ./src",
+		"lint:fix": "biome check --write ./src",
+		"check-types": "tsc --noEmit"
+	},
+	"files": [
+		"dist/**",
+		"dist"
+	],
+	"exports": {
+		"./types": {
+			"import": {
+				"types": "./dist/types/index.d.ts",
+				"default": "./dist/index.js"
+			},
+			"require": {
+				"types": "./dist/types/index.d.ts",
+				"default": "./dist/index.cjs"
+			}
+		}
+	},
+	"author": "Boy BOni Panjaitan",
+	"license": "ISC"
+}

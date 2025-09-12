@@ -1,5 +1,5 @@
+import type { User } from "@nretro/common/types";
 import bcrypt from "bcrypt";
-import type { User } from "../models/User";
 import pool from "../utils/db";
 
 export async function createUser(

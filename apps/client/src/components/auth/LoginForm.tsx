@@ -1,20 +1,24 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import classnames from "classnames";
 import { useId } from "react";
 import { useForm } from "react-hook-form";
+import { useLogin } from "@/hooks/useAuth";
 import { type LoginFormValues, loginSchema } from "../../schemas/auth.schema";
 
 interface LoginFormProps {
-	onSubmit: (data: LoginFormValues) => void;
+	onSuccess: () => void;
 	isLoading?: boolean;
 }
 
-export function LoginForm({ onSubmit, isLoading = false }: LoginFormProps) {
+export function LoginForm({ onSuccess, isLoading = false }: LoginFormProps) {
 	const emailId = useId();
 	const passwordId = useId();
+	const login = useLogin();
 
 	const {
 		register,
 		handleSubmit,
+		setError,
 		formState: { errors, isSubmitting },
 	} = useForm<LoginFormValues>({
 		resolver: zodResolver(loginSchema),
@@ -24,8 +28,27 @@ export function LoginForm({ onSubmit, isLoading = false }: LoginFormProps) {
 		},
 	});
 
+	const handleLogin = async (data: LoginFormValues) => {
+		login
+			.mutateAsync(data)
+			.then(() => {
+				onSuccess();
+			})
+			.catch((error) => {
+				setError(
+					"email",
+					{
+						message: error.message,
+					},
+					{
+						shouldFocus: true,
+					},
+				);
+			});
+	};
+
 	return (
-		<form onSubmit={handleSubmit(onSubmit)}>
+		<form onSubmit={handleSubmit(handleLogin)}>
 			<div className="mb-4">
 				<label
 					htmlFor={emailId}
@@ -37,7 +60,12 @@ export function LoginForm({ onSubmit, isLoading = false }: LoginFormProps) {
 					id={emailId}
 					type="email"
 					{...register("email")}
-					className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+					className={classnames(
+						`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500`,
+						{
+							"border-red-500": errors.email,
+						},
+					)}
 					autoComplete="email"
 				/>
 				{errors.email && (
@@ -56,7 +84,12 @@ export function LoginForm({ onSubmit, isLoading = false }: LoginFormProps) {
 					id={passwordId}
 					type="password"
 					{...register("password")}
-					className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+					className={classnames(
+						"w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500",
+						{
+							"border-red-500": errors.password,
+						},
+					)}
 					autoComplete="current-password"
 				/>
 				{errors.password && (

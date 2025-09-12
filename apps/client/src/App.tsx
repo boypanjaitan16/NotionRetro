@@ -3,13 +3,14 @@ import { useEffect } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { useCurrentUser } from "./hooks/useAuth";
+
+import AddCollectionPage from "./pages/collections/AddCollection";
+import CollectionsPage from "./pages/collections/Collections";
+import HomePage from "./pages/Home";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import { useAuthStore } from "./stores/authStore";
 
-// Placeholder components until we create them
-const Home = () => <div>Home Page</div>;
-const Collections = () => <div>Collections Page</div>;
 const CollectionDetails = () => <div>Collection Details Page</div>;
 const NotionConnect = () => <div>Notion Connect Page</div>;
 const NotFound = () => <div>404 - Not Found</div>;
@@ -56,18 +57,18 @@ function App() {
 			<Routes>
 				<Route path="/" element={<Layout />}>
 					{/* Public routes */}
-					<Route index element={<Home />} />
+					<Route index element={<HomePage />} />
 					<Route path="login" element={<Login />} />
 					<Route path="signup" element={<Signup />} />
 
 					{/* Protected routes */}
 					<Route
 						path="collections"
-						element={<ProtectedRoute element={<Collections />} />}
+						element={<ProtectedRoute element={<CollectionsPage />} />}
 					/>
 					<Route
-						path="collections/:id"
-						element={<ProtectedRoute element={<CollectionDetails />} />}
+						path="collections/new"
+						element={<ProtectedRoute element={<AddCollectionPage />} />}
 					/>
 					<Route
 						path="notion"

@@ -1,12 +1,7 @@
+import type { User } from "@nretro/common/types";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
-
-interface User {
-	id: string;
-	email: string;
-	notionConnected: boolean;
-}
 
 interface AuthState {
 	token: string | null;

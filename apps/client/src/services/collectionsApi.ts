@@ -1,22 +1,12 @@
-import { api } from "./api";
-
-export interface Collection {
-	id: string;
-	name: string;
-	description: string;
-	items: CollectionItem[];
-}
+import type { Collection } from "@nretro/common/types";
+import type { CreateCollectionValues } from "@/schemas/collection.schema";
+import { axiosApi } from "./api";
 
 export interface CollectionItem {
 	id: string;
 	content: string;
 	status: string;
 	notionPageId?: string;
-}
-
-export interface CollectionCreate {
-	name: string;
-	description?: string;
 }
 
 export interface CollectionUpdate {
@@ -39,48 +29,40 @@ export const collectionsApi = {
 	 * Get all collections
 	 */
 	getCollections: async () => {
-		const response = await api.get<{ collections: Collection[] }>(
-			"/collections",
-		);
-		return response.collections;
+		return axiosApi.get<{ collections: Collection[] }>("/collections");
 	},
 
 	/**
 	 * Get a single collection by ID
 	 */
-	getCollection: async (id: string) => {
-		const response = await api.get<{ collection: Collection }>(
-			`/collections/${id}`,
-		);
-		return response.collection;
+	getCollection: async (id: Collection["id"]) => {
+		return axiosApi.get<{ collection: Collection }>(`/collections/${id}`);
 	},
 
 	/**
 	 * Create a new collection
 	 */
-	createCollection: async (data: CollectionCreate) => {
-		const response = await api.post<{
+	createCollection: async (data: CreateCollectionValues) => {
+		return axiosApi.post<{
 			collection: Collection;
 			message: string;
 		}>("/collections", data as unknown as Record<string, unknown>);
-		return response.collection;
 	},
 
 	/**
 	 * Update a collection
 	 */
-	updateCollection: async (id: string, data: CollectionUpdate) => {
-		const response = await api.put<{ collection: Collection; message: string }>(
+	updateCollection: async (id: Collection["id"], data: CollectionUpdate) => {
+		return axiosApi.put<{ collection: Collection; message: string }>(
 			`/collections/${id}`,
 			data as unknown as Record<string, unknown>,
 		);
-		return response.collection;
 	},
 
 	/**
 	 * Delete a collection
 	 */
-	deleteCollection: async (id: string) => {
-		await api.delete(`/collections/${id}`);
+	deleteCollection: async (id: Collection["id"]) => {
+		return axiosApi.delete(`/collections/${id}`);
 	},
 };

@@ -18,7 +18,7 @@ export async function validateNotionAuth(
 		// Check if token expiry date has passed
 		if (
 			user.notionTokenExpiresAt &&
-			(await isTokenExpired(user.notionTokenExpiresAt))
+			(await isTokenExpired(user.notionTokenExpiresAt.toISOString()))
 		) {
 			console.log("Notion token has expired based on our records");
 			// Clear token data

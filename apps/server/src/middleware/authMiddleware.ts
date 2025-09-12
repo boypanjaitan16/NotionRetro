@@ -1,6 +1,6 @@
+import type { User } from "@nretro/common/types";
 import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
-import type { User } from "../models/User";
 import pool from "../utils/db";
 
 // TypeScript extension for Request to include user property

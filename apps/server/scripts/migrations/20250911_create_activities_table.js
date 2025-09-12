@@ -12,17 +12,20 @@ async function migrate() {
 	try {
 		// Write your migration SQL here
 		await connection.query(`
-        CREATE TABLE IF NOT EXISTS todos (
+        CREATE TABLE IF NOT EXISTS activities (
           id INT AUTO_INCREMENT PRIMARY KEY,
           collectionId INT NOT NULL,
           title VARCHAR(255) NOT NULL,
-          description TEXT,
-          completed BOOLEAN DEFAULT FALSE,
+          pageId VARCHAR(255),
+          summary TEXT,
+          facilitators JSON,
+          participants JSON,
+          actions JSON,
           createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (collectionId) REFERENCES collections(id) ON DELETE CASCADE
         )
       `);
-		console.log("Migration successful: create_todos_table");
+		console.log("Migration successful: create_activities_table");
 	} catch (err) {
 		console.error("Migration failed:", err);
 	} finally {

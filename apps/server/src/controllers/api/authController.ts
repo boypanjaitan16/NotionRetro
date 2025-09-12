@@ -36,9 +36,16 @@ export async function signup(req: Request, res: Response) {
 			expiresIn: JWT_EXPIRES_IN,
 		} as SignOptions);
 
+		res.cookie("token", token, {
+			httpOnly: true,
+			secure: process.env["NODE_ENV"] === "production",
+			sameSite: "strict",
+			maxAge: 24 * 60 * 60 * 1000, // 1 day
+		});
+
 		return res.status(201).json({
 			message: "User created successfully",
-			user: { id: user.id, email: user.email },
+			user,
 			token,
 		});
 	} catch (error) {
@@ -93,7 +100,7 @@ export async function login(req: Request, res: Response) {
 
 		return res.json({
 			message: "Login successful",
-			user: { id: user.id, email: user.email },
+			user,
 			token,
 		});
 	} catch (error) {
@@ -119,10 +126,6 @@ export async function getCurrentUser(req: Request, res: Response) {
 	}
 
 	return res.json({
-		user: {
-			id: req.user.id,
-			email: req.user.email,
-			notionConnected: !!req.user.notionAccessToken,
-		},
+		user: req.user,
 	});
 }

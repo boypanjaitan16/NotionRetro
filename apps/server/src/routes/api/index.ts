@@ -1,10 +1,8 @@
 import { Router } from "express";
-
-// Import all API routes
+import activitiesRoutes from "./activitiyRoutes";
 import authRoutes from "./authRoutes";
 import collectionRoutes from "./collectionRoutes";
 import notionRoutes from "./notionRoutes";
-import syncRoutes from "./syncRoutes";
 
 const router = Router();
 
@@ -12,6 +10,6 @@ const router = Router();
 router.use("/auth", authRoutes);
 router.use("/collections", collectionRoutes);
 router.use("/notion", notionRoutes);
-router.use("/sync", syncRoutes);
+router.use("/activities", activitiesRoutes);
 
 export default router;

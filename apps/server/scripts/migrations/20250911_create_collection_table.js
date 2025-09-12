@@ -15,9 +15,12 @@ async function migrate() {
         CREATE TABLE IF NOT EXISTS collections (
           id INT AUTO_INCREMENT PRIMARY KEY,
           userId INT NOT NULL,
-          name VARCHAR(255) NOT NULL,
-          summary TEXT,
+          title VARCHAR(255) NOT NULL,
           pageId VARCHAR(255),
+          retroParentPageId VARCHAR(255),
+          retroTitleTemplate VARCHAR(255),
+          healthCheckParentPageId VARCHAR(255),
+          healthCheckTitleTemplate VARCHAR(255),
           createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
         )

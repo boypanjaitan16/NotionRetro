@@ -15,6 +15,7 @@
 	"author": "",
 	"license": "ISC",
 	"dependencies": {
+		"@nretro/common": "*",
 		"@types/bcrypt": "^6.0.0",
 		"@types/jsonwebtoken": "^9.0.10",
 		"axios": "^1.11.0",

@@ -1,7 +1,9 @@
 import { Router } from "express";
+import { createActivity } from "../../controllers/api/activityController";
 import {
 	createCollection,
 	deleteCollection,
+	getActivitiesByCollection,
 	getCollection,
 	getCollections,
 	updateCollection,
@@ -14,6 +16,9 @@ const router = Router();
 router.use(authenticateJWT);
 
 // Collection routes
+router.get("/:id/activities", getActivitiesByCollection);
+router.post("/:id/activities", createActivity);
+
 router.post("/", createCollection);
 router.get("/", getCollections);
 router.get("/:id", getCollection);

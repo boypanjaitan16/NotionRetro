@@ -1,81 +1,41 @@
 /**
  * Base API service for communicating with the NotionRetro backend
  */
+import axios from "axios";
 
 const API_BASE_URL =
 	import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
 
 /**
- * Basic options for fetch requests
+ * Create Axios instance with default configuration
  */
-const defaultOptions: RequestInit = {
+const axiosInstance = axios.create({
+	baseURL: API_BASE_URL,
 	headers: {
 		"Content-Type": "application/json",
 	},
-	credentials: "include", // Send cookies for authentication
-};
+	withCredentials: true, // Send cookies for authentication
+});
 
-/**
- * Generic API request function
- */
-async function request<T = unknown>(
-	endpoint: string,
-	method: string = "GET",
-	data?: Record<string, unknown>,
-): Promise<T> {
-	const options: RequestInit = {
-		...defaultOptions,
-		method,
-	};
+axiosInstance.interceptors.request.use(
+	(config) => {
+		if (config.headers) config.headers.Authorization = `X`;
 
-	if (data) {
-		options.body = JSON.stringify(data);
-	}
+		return config;
+	},
+	(error) => {
+		return Promise.reject(error);
+	},
+);
 
-	const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+axiosInstance.interceptors.response.use(
+	(response) => {
+		return response;
+	},
+	(error) => {
+		const message = error.response?.data?.error?.message ?? error.message;
+		return Promise.reject(new Error(message));
+	},
+);
 
-	if (!response.ok) {
-		const errorData = await response.json().catch(() => ({}));
-		throw new Error(errorData.error || `API error: ${response.status}`);
-	}
-
-	// For 204 No Content responses
-	if (response.status === 204) {
-		return {} as T;
-	}
-
-	return response.json();
-}
-
-/**
- * API service methods
- */
-export const api = {
-	/**
-	 * GET request
-	 */
-	get: <T = unknown>(endpoint: string) => request<T>(endpoint, "GET"),
-
-	/**
-	 * POST request
-	 */
-	post: <T = unknown>(endpoint: string, data: Record<string, unknown>) =>
-		request<T>(endpoint, "POST", data),
-
-	/**
-	 * PUT request
-	 */
-	put: <T = unknown>(endpoint: string, data: Record<string, unknown>) =>
-		request<T>(endpoint, "PUT", data),
-
-	/**
-	 * PATCH request
-	 */
-	patch: <T = unknown>(endpoint: string, data: Record<string, unknown>) =>
-		request<T>(endpoint, "PATCH", data),
-
-	/**
-	 * DELETE request
-	 */
-	delete: <T = unknown>(endpoint: string) => request<T>(endpoint, "DELETE"),
-};
+export const axiosApi = axiosInstance;

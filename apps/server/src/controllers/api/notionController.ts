@@ -1,13 +1,5 @@
-import axios from "axios";
 import type { Request, Response } from "express";
-import db from "../../utils/db";
-
-// Notion API configuration
-const NOTION_CLIENT_ID = process.env["NOTION_CLIENT_ID"];
-const NOTION_CLIENT_SECRET = process.env["NOTION_CLIENT_SECRET"];
-const NOTION_REDIRECT_URI =
-	process.env["NOTION_REDIRECT_URI"] ||
-	"http://localhost:4000/api/notion/callback";
+import * as notionApiService from "../../services/notionService";
 
 /**
  * Authorize with Notion
@@ -20,26 +12,20 @@ export async function authorizeNotion(req: Request, res: Response) {
 			return res.status(401).json({ error: { message: "Not authenticated" } });
 		}
 
-		// Check if we have the required env variables
-		if (!NOTION_CLIENT_ID) {
-			return res
-				.status(500)
-				.json({ error: { message: "Missing Notion client ID" } });
+		try {
+			const authUrl = await notionApiService.getNotionAuthorizationUrl(userId);
+			return res.json({ authUrl });
+		} catch (error) {
+			if (
+				error instanceof Error &&
+				error.message.includes("Missing Notion client ID")
+			) {
+				return res
+					.status(500)
+					.json({ error: { message: "Missing Notion client ID" } });
+			}
+			throw error;
 		}
-
-		// Generate a state parameter to prevent CSRF attacks
-		const state = Math.random().toString(36).substring(2, 15);
-
-		// Store the state in the database for verification later
-		await db.query("UPDATE users SET notionState = ? WHERE id = ?", [
-			state,
-			userId,
-		]);
-
-		// Construct the authorization URL
-		const authUrl = `https://api.notion.com/v1/oauth/authorize?client_id=${NOTION_CLIENT_ID}&response_type=code&owner=user&state=${state}&redirect_uri=${encodeURIComponent(NOTION_REDIRECT_URI)}`;
-
-		return res.json({ authUrl });
 	} catch (error) {
 		console.error("Notion authorize error:", error);
 		return res
@@ -60,38 +46,18 @@ export async function getNotionDatabases(req: Request, res: Response) {
 		}
 
 		// Get the user's Notion access token
-		const [rows] = await db.query(
-			"SELECT notionAccessToken FROM users WHERE id = ?",
-			[userId],
-		);
+		const accessToken = await notionApiService.getUserNotionToken(userId);
 
-		const user = (rows as Array<{ notionAccessToken: string | null }>)[0];
-
-		if (!user || !user.notionAccessToken) {
+		if (!accessToken) {
 			return res
 				.status(400)
 				.json({ error: { message: "Notion not connected" } });
 		}
 
-		// Initialize axios for Notion API
-		const notionApiClient = axios.create({
-			baseURL: "https://api.notion.com/v1",
-			headers: {
-				Authorization: `Bearer ${user.notionAccessToken}`,
-				"Notion-Version": "2022-06-28",
-				"Content-Type": "application/json",
-			},
-		});
-
 		// Get the user's databases
-		const response = await notionApiClient.post("/search", {
-			filter: {
-				property: "object",
-				value: "database",
-			},
-		});
+		const databases = await notionApiService.getNotionDatabases(accessToken);
 
-		return res.json({ databases: response.data.results });
+		return res.json({ databases });
 	} catch (error) {
 		console.error("Get Notion databases error:", error);
 		return res
@@ -106,7 +72,7 @@ export async function getNotionDatabases(req: Request, res: Response) {
 export async function getNotionPages(req: Request, res: Response) {
 	try {
 		const userId = req.user?.id;
-		const { databaseId } = req.query;
+		const databaseId = req.query["databaseId"] as string;
 
 		if (!userId) {
 			return res.status(401).json({ error: { message: "Not authenticated" } });
@@ -119,35 +85,21 @@ export async function getNotionPages(req: Request, res: Response) {
 		}
 
 		// Get the user's Notion access token
-		const [rows] = await db.query(
-			"SELECT notionAccessToken FROM users WHERE id = ?",
-			[userId],
-		);
+		const accessToken = await notionApiService.getUserNotionToken(userId);
 
-		const user = (rows as Array<{ notionAccessToken: string | null }>)[0];
-
-		if (!user || !user.notionAccessToken) {
+		if (!accessToken) {
 			return res
 				.status(400)
 				.json({ error: { message: "Notion not connected" } });
 		}
 
-		// Initialize axios for Notion API
-		const notionApiClient = axios.create({
-			baseURL: "https://api.notion.com/v1",
-			headers: {
-				Authorization: `Bearer ${user.notionAccessToken}`,
-				"Notion-Version": "2022-06-28",
-				"Content-Type": "application/json",
-			},
-		});
-
 		// Query the database
-		const response = await notionApiClient.post(
-			`/databases/${databaseId as string}/query`,
+		const pages = await notionApiService.getNotionPagesFromDatabase(
+			accessToken,
+			databaseId,
 		);
 
-		return res.json({ pages: response.data.results });
+		return res.json({ pages });
 	} catch (error) {
 		console.error("Get Notion pages error:", error);
 		return res
@@ -168,10 +120,7 @@ export async function disconnectNotion(req: Request, res: Response) {
 		}
 
 		// Remove the Notion access token from the user
-		await db.query(
-			"UPDATE users SET notionAccessToken = NULL, notionState = NULL WHERE id = ?",
-			[userId],
-		);
+		await notionApiService.disconnectNotionFromUser(userId);
 
 		return res.json({ message: "Notion disconnected successfully" });
 	} catch (error) {
@@ -187,7 +136,8 @@ export async function disconnectNotion(req: Request, res: Response) {
  */
 export async function notionCallback(req: Request, res: Response) {
 	try {
-		const { code, state } = req.query;
+		const code = req.query["code"] as string;
+		const state = req.query["state"] as string;
 
 		if (!code || !state) {
 			return res.status(400).json({
@@ -196,12 +146,7 @@ export async function notionCallback(req: Request, res: Response) {
 		}
 
 		// Find user with matching state parameter
-		const [rows] = await db.query(
-			"SELECT id, notionState FROM users WHERE notionState = ?",
-			[state],
-		);
-
-		const user = (rows as Array<{ id: string; notionState: string | null }>)[0];
+		const user = await notionApiService.findUserByNotionState(state);
 
 		if (!user) {
 			return res.status(400).json({
@@ -209,32 +154,17 @@ export async function notionCallback(req: Request, res: Response) {
 			});
 		}
 
-		// Exchange authorization code for access token
 		try {
-			const response = await axios.post(
-				"https://api.notion.com/v1/oauth/token",
-				{
-					grant_type: "authorization_code",
-					code,
-					redirect_uri: NOTION_REDIRECT_URI,
-				},
-				{
-					headers: {
-						"Content-Type": "application/json",
-					},
-					auth: {
-						username: NOTION_CLIENT_ID || "",
-						password: NOTION_CLIENT_SECRET || "",
-					},
-				},
-			);
-
-			const { access_token, workspace_id, workspace_name } = response.data;
+			// Exchange authorization code for access token
+			const { access_token, workspace_id, workspace_name } =
+				await notionApiService.exchangeNotionCode(code);
 
 			// Store the access token in the database
-			await db.query(
-				"UPDATE users SET notionAccessToken = ?, notionWorkspaceId = ?, notionWorkspaceName = ?, notionState = NULL WHERE id = ?",
-				[access_token, workspace_id, workspace_name, user.id],
+			await notionApiService.storeNotionTokenForUser(
+				user.id,
+				access_token,
+				workspace_id,
+				workspace_name,
 			);
 
 			// Redirect back to the frontend

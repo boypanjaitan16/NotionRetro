@@ -1,16 +1,58 @@
 import type { Request, Response } from "express";
-import db from "../../utils/db";
+import * as activityService from "../../services/activityService";
+import * as collectionService from "../../services/collectionService";
+
+/**
+ * Get all activities for a collection
+ */
+export async function getActivitiesByCollection(req: Request, res: Response) {
+	try {
+		const userId = req.user?.id;
+		const collectionId = parseInt(req.params["id"] as string, 10);
+
+		if (!userId) {
+			return res.status(401).json({ error: { message: "Not authenticated" } });
+		}
+
+		// Verify user has access to collection
+		const hasAccess = await collectionService.userHasAccessToCollection(
+			userId,
+			collectionId,
+		);
+		if (!hasAccess) {
+			return res
+				.status(403)
+				.json({ error: { message: "Access denied to this collection" } });
+		}
+
+		const activities =
+			await activityService.getActivitiesByCollection(collectionId);
+		return res.json({ activities });
+	} catch (error) {
+		console.error("Get activities error:", error);
+		return res
+			.status(500)
+			.json({ error: { message: "Failed to get activities" } });
+	}
+}
 
 /**
  * Create a new collection
  */
 export async function createCollection(req: Request, res: Response) {
 	try {
-		const { name, description } = req.body;
+		const {
+			title,
+			pageId,
+			retroParentPageId,
+			retroTitleTemplate,
+			healthCheckParentPageId,
+			healthCheckTitleTemplate,
+		} = req.body;
 
-		if (!name) {
+		if (!title) {
 			return res.status(400).json({
-				error: { message: "Collection name is required" },
+				error: { message: "Collection title is required" },
 			});
 		}
 
@@ -21,18 +63,14 @@ export async function createCollection(req: Request, res: Response) {
 			return res.status(401).json({ error: { message: "Not authenticated" } });
 		}
 
-		const [result] = await db.query(
-			"INSERT INTO collections (name, description, userId) VALUES (?, ?, ?)",
-			[name, description || "", userId],
-		);
-
-		const insertId = (result as { insertId: number }).insertId;
-
-		const [rows] = await db.query("SELECT * FROM collections WHERE id = ?", [
-			insertId,
-		]);
-
-		const collection = (rows as any[])[0];
+		const collection = await collectionService.createCollection(userId, {
+			title,
+			pageId,
+			retroParentPageId,
+			retroTitleTemplate,
+			healthCheckParentPageId,
+			healthCheckTitleTemplate,
+		});
 
 		return res.status(201).json({
 			message: "Collection created successfully",
@@ -57,12 +95,9 @@ export async function getCollections(req: Request, res: Response) {
 			return res.status(401).json({ error: { message: "Not authenticated" } });
 		}
 
-		const [rows] = await db.query(
-			"SELECT * FROM collections WHERE userId = ?",
-			[userId],
-		);
+		const collections = await collectionService.getCollectionsByUserId(userId);
 
-		return res.json({ collections: rows });
+		return res.json({ collections });
 	} catch (error) {
 		console.error("Get collections error:", error);
 		return res
@@ -76,35 +111,29 @@ export async function getCollections(req: Request, res: Response) {
  */
 export async function getCollection(req: Request, res: Response) {
 	try {
-		const { id } = req.params;
+		const id = req.params["id"];
 		const userId = req.user?.id;
 
 		if (!userId) {
 			return res.status(401).json({ error: { message: "Not authenticated" } });
 		}
 
-		// Get the collection
-		const [collectionRows] = await db.query(
-			"SELECT * FROM collections WHERE id = ? AND userId = ?",
-			[id, userId],
-		);
+		if (!id) {
+			return res.status(400).json({
+				error: { message: "Collection ID is required" },
+			});
+		}
 
-		const collection = (collectionRows as any[])[0];
+		const collection = await collectionService.getCollectionWithItems(
+			parseInt(id, 10),
+			userId,
+		);
 
 		if (!collection) {
 			return res
 				.status(404)
 				.json({ error: { message: "Collection not found" } });
 		}
-
-		// Get the items in the collection
-		const [itemRows] = await db.query(
-			"SELECT * FROM items WHERE collectionId = ?",
-			[id],
-		);
-
-		// Add items to the collection
-		collection.items = itemRows;
 
 		return res.json({ collection });
 	} catch (error) {
@@ -120,47 +149,46 @@ export async function getCollection(req: Request, res: Response) {
  */
 export async function updateCollection(req: Request, res: Response) {
 	try {
-		const { id } = req.params;
-		const { name, description } = req.body;
+		const id = req.params["id"];
+		const {
+			title,
+			pageId,
+			retroParentPageId,
+			retroTitleTemplate,
+			healthCheckParentPageId,
+			healthCheckTitleTemplate,
+		} = req.body;
+
 		const userId = req.user?.id;
 
 		if (!userId) {
 			return res.status(401).json({ error: { message: "Not authenticated" } });
 		}
 
-		// First check if the collection exists and belongs to the user
-		const [rows] = await db.query(
-			"SELECT * FROM collections WHERE id = ? AND userId = ?",
-			[id, userId],
+		if (!id) {
+			return res.status(400).json({
+				error: { message: "Collection ID is required" },
+			});
+		}
+
+		const updatedCollection = await collectionService.updateCollection(
+			parseInt(id, 10),
+			userId,
+			{
+				title,
+				pageId,
+				retroParentPageId,
+				retroTitleTemplate,
+				healthCheckParentPageId,
+				healthCheckTitleTemplate,
+			},
 		);
 
-		const existingCollection = (rows as any[])[0];
-
-		if (!existingCollection) {
+		if (!updatedCollection) {
 			return res
 				.status(404)
 				.json({ error: { message: "Collection not found" } });
 		}
-
-		// Update the collection
-		await db.query(
-			"UPDATE collections SET name = ?, description = ? WHERE id = ?",
-			[
-				name || existingCollection.name,
-				description !== undefined
-					? description
-					: existingCollection.description,
-				id,
-			],
-		);
-
-		// Get the updated collection
-		const [updatedRows] = await db.query(
-			"SELECT * FROM collections WHERE id = ?",
-			[id],
-		);
-
-		const updatedCollection = (updatedRows as any[])[0];
 
 		return res.json({
 			message: "Collection updated successfully",
@@ -179,32 +207,29 @@ export async function updateCollection(req: Request, res: Response) {
  */
 export async function deleteCollection(req: Request, res: Response) {
 	try {
-		const { id } = req.params;
+		const id = req.params["id"];
 		const userId = req.user?.id;
 
 		if (!userId) {
 			return res.status(401).json({ error: { message: "Not authenticated" } });
 		}
 
-		// First check if the collection exists and belongs to the user
-		const [rows] = await db.query(
-			"SELECT * FROM collections WHERE id = ? AND userId = ?",
-			[id, userId],
+		if (!id) {
+			return res.status(400).json({
+				error: { message: "Collection ID is required" },
+			});
+		}
+
+		const success = await collectionService.deleteCollection(
+			parseInt(id, 10),
+			userId,
 		);
 
-		const existingCollection = (rows as any[])[0];
-
-		if (!existingCollection) {
+		if (!success) {
 			return res
 				.status(404)
 				.json({ error: { message: "Collection not found" } });
 		}
-
-		// Delete all items in the collection first
-		await db.query("DELETE FROM items WHERE collectionId = ?", [id]);
-
-		// Delete the collection
-		await db.query("DELETE FROM collections WHERE id = ?", [id]);
 
 		return res.json({ message: "Collection deleted successfully" });
 	} catch (error) {

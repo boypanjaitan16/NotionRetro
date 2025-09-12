@@ -32,8 +32,8 @@ export function useLogin() {
 
 	return useMutation({
 		mutationFn: (credentials: LoginCredentials) => authApi.login(credentials),
-		onSuccess: () => {
-			// Invalidate the user query to trigger a refetch
+		onSuccess: ({ data }) => {
+			useAuthStore.getState().login(data.token, data.user);
 			queryClient.invalidateQueries({ queryKey: authKeys.user() });
 		},
 	});
@@ -45,8 +45,8 @@ export function useSignup() {
 
 	return useMutation({
 		mutationFn: (credentials: SignupCredentials) => authApi.signup(credentials),
-		onSuccess: () => {
-			// Invalidate the user query to trigger a refetch
+		onSuccess: ({ data }) => {
+			useAuthStore.getState().login(data.token, data.user);
 			queryClient.invalidateQueries({ queryKey: authKeys.user() });
 		},
 	});
@@ -59,9 +59,8 @@ export function useLogout() {
 	return useMutation({
 		mutationFn: authApi.logout,
 		onSuccess: () => {
-			// Reset the auth-related queries after logout
+			useAuthStore.getState().logout();
 			queryClient.invalidateQueries({ queryKey: authKeys.all });
-			// Clear user data from the query cache
 			queryClient.setQueryData(authKeys.user(), null);
 		},
 	});

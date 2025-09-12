@@ -1,28 +1,32 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import classnames from "classnames";
 import { useId } from "react";
 import { useForm } from "react-hook-form";
+import { useSignup } from "@/hooks/useAuth";
 import {
 	type RegisterFormValues,
 	registerSchema,
 } from "../../schemas/auth.schema";
 
 interface RegisterFormProps {
-	onSubmit: (data: RegisterFormValues) => void;
+	onSuccess: () => void;
 	isLoading?: boolean;
 }
 
 export function RegisterForm({
-	onSubmit,
+	onSuccess,
 	isLoading = false,
 }: RegisterFormProps) {
 	const nameId = useId();
 	const emailId = useId();
 	const passwordId = useId();
 	const confirmPasswordId = useId();
+	const signup = useSignup();
 
 	const {
 		register,
 		handleSubmit,
+		setError,
 		formState: { errors, isSubmitting },
 	} = useForm<RegisterFormValues>({
 		resolver: zodResolver(registerSchema),
@@ -34,8 +38,34 @@ export function RegisterForm({
 		},
 	});
 
+	const handleSignup = async (data: RegisterFormValues) => {
+		// Create a signup payload that omits confirmPassword
+		const signupData = {
+			name: data.name,
+			email: data.email,
+			password: data.password,
+		};
+
+		signup
+			.mutateAsync(signupData)
+			.then(() => {
+				onSuccess();
+			})
+			.catch((error) => {
+				setError(
+					"name",
+					{
+						message: error.message,
+					},
+					{
+						shouldFocus: true,
+					},
+				);
+			});
+	};
+
 	return (
-		<form onSubmit={handleSubmit(onSubmit)}>
+		<form onSubmit={handleSubmit(handleSignup)}>
 			<div className="mb-4">
 				<label
 					htmlFor={nameId}
@@ -47,7 +77,12 @@ export function RegisterForm({
 					id={nameId}
 					type="text"
 					{...register("name")}
-					className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+					className={classnames(
+						`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500`,
+						{
+							"border-red-500": errors.name,
+						},
+					)}
 					autoComplete="name"
 				/>
 				{errors.name && (
@@ -66,7 +101,12 @@ export function RegisterForm({
 					id={emailId}
 					type="email"
 					{...register("email")}
-					className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+					className={classnames(
+						`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500`,
+						{
+							"border-red-500": errors.email,
+						},
+					)}
 					autoComplete="email"
 				/>
 				{errors.email && (
@@ -85,7 +125,12 @@ export function RegisterForm({
 					id={passwordId}
 					type="password"
 					{...register("password")}
-					className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+					className={classnames(
+						`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500`,
+						{
+							"border-red-500": errors.password,
+						},
+					)}
 					autoComplete="new-password"
 				/>
 				{errors.password && (
@@ -104,7 +149,12 @@ export function RegisterForm({
 					id={confirmPasswordId}
 					type="password"
 					{...register("confirmPassword")}
-					className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+					className={classnames(
+						`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500`,
+						{
+							"border-red-500": errors.confirmPassword,
+						},
+					)}
 					autoComplete="new-password"
 				/>
 				{errors.confirmPassword && (
