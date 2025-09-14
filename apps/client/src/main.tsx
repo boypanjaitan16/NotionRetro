@@ -1,4 +1,8 @@
 import "./index.css";
+import "@mantine/core/styles.css";
+import "@mantine/dates/styles.css";
+
+import { MantineProvider } from "@mantine/core";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
@@ -13,7 +17,9 @@ if (!rootElement) {
 createRoot(rootElement).render(
 	<StrictMode>
 		<QueryProvider>
-			<App />
+			<MantineProvider>
+				<App />
+			</MantineProvider>
 		</QueryProvider>
 	</StrictMode>,
 );

@@ -121,10 +121,6 @@ export async function logout(_req: Request, res: Response) {
  * Get the current user
  */
 export async function getCurrentUser(req: Request, res: Response) {
-	if (!req.user) {
-		return res.status(401).json({ error: { message: "Not authenticated" } });
-	}
-
 	return res.json({
 		user: req.user,
 	});

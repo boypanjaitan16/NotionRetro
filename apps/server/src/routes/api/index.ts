@@ -6,10 +6,9 @@ import notionRoutes from "./notionRoutes";
 
 const router = Router();
 
-// Register all API routes
 router.use("/auth", authRoutes);
 router.use("/collections", collectionRoutes);
-router.use("/notion", notionRoutes);
 router.use("/activities", activitiesRoutes);
+router.use("/notion", notionRoutes);
 
 export default router;

@@ -9,38 +9,47 @@ export async function validateNotionAuth(
 ) {
 	const user = req.user;
 
-	// If no user is logged in or user has no Notion token, proceed (the controller will handle this)
-	if (!user || !user.notionAccessToken) {
-		return next();
+	if (!user?.notionAccessToken) {
+		return res.status(500).json({
+			error: {
+				message: "Notion is not connected",
+			},
+		});
 	}
 
 	try {
-		// Check if token expiry date has passed
 		if (
 			user.notionTokenExpiresAt &&
-			(await isTokenExpired(user.notionTokenExpiresAt.toISOString()))
+			(await isTokenExpired(user.notionTokenExpiresAt))
 		) {
 			console.log("Notion token has expired based on our records");
 			// Clear token data
 			// In a production app, you might implement a token refresh here
 			await updateNotionToken(user.id, null);
-			return res.redirect("/notion/connect?error=token_expired");
+
+			return res.status(500).json({
+				error: {
+					message: "Notion token has expired",
+				},
+			});
 		}
 
-		// Validate token with the Notion API
 		const isValid = await validateNotionToken(user.notionAccessToken);
 		if (!isValid) {
 			console.log("Notion token is invalid according to Notion API");
 			// Clear token data
 			await updateNotionToken(user.id, null);
-			return res.redirect("/notion/connect?error=token_invalid");
+			return res.status(500).json({
+				error: {
+					message: "Notion token has expired",
+				},
+			});
 		}
 
-		// Token is valid, proceed
 		next();
 	} catch (error) {
 		console.error("Error validating Notion token:", error);
 		// If there's an error, we'll assume the token might still be valid and proceed
-		next();
+		return next();
 	}
 }

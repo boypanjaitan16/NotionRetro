@@ -1,3 +1,5 @@
+import { Button } from "@mantine/core";
+import { IconArrowRight } from "@tabler/icons-react";
 import { Link } from "react-router-dom";
 import { useAuthStore } from "@/stores/authStore";
 import CollectionsPage from "./collections/Collections";
@@ -21,12 +23,14 @@ const HomePage = () => {
 				how you like it to display in Notion.
 			</p>
 
-			<Link
+			<Button
+				component={Link}
+				rightSection={<IconArrowRight size={15} />}
 				to="/login"
 				className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
 			>
 				Login to Continue
-			</Link>
+			</Button>
 		</div>
 	);
 };

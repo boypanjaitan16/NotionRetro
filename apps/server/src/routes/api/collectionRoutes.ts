@@ -9,17 +9,16 @@ import {
 	updateCollection,
 } from "../../controllers/api/collectionController";
 import { authenticateJWT } from "../../middleware/authMiddleware";
+import { validateNotionAuth } from "../../middleware/notionMiddleware";
 
 const router = Router();
 
-// All collection routes are protected
 router.use(authenticateJWT);
 
-// Collection routes
 router.get("/:id/activities", getActivitiesByCollection);
-router.post("/:id/activities", createActivity);
+router.post("/:id/activities", validateNotionAuth, createActivity);
 
-router.post("/", createCollection);
+router.post("/", validateNotionAuth, createCollection);
 router.get("/", getCollections);
 router.get("/:id", getCollection);
 router.put("/:id", updateCollection);

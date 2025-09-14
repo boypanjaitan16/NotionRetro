@@ -1,18 +1,16 @@
+import { asInt } from "@nretro/common/utils";
 import type { Request, Response } from "express";
 import * as activityService from "../../services/activityService";
 import * as collectionService from "../../services/collectionService";
+import * as notionService from "../../services/notionService";
 
 /**
  * Get all activities for a collection
  */
 export async function getActivitiesByCollection(req: Request, res: Response) {
 	try {
-		const userId = req.user?.id;
-		const collectionId = parseInt(req.params["id"] as string, 10);
-
-		if (!userId) {
-			return res.status(401).json({ error: { message: "Not authenticated" } });
-		}
+		const userId = req.user?.id as number;
+		const collectionId = asInt(req.params["id"]);
 
 		// Verify user has access to collection
 		const hasAccess = await collectionService.userHasAccessToCollection(
@@ -27,7 +25,7 @@ export async function getActivitiesByCollection(req: Request, res: Response) {
 
 		const activities =
 			await activityService.getActivitiesByCollection(collectionId);
-		return res.json({ activities });
+		return res.json(activities);
 	} catch (error) {
 		console.error("Get activities error:", error);
 		return res
@@ -43,7 +41,6 @@ export async function createCollection(req: Request, res: Response) {
 	try {
 		const {
 			title,
-			pageId,
 			retroParentPageId,
 			retroTitleTemplate,
 			healthCheckParentPageId,
@@ -56,26 +53,34 @@ export async function createCollection(req: Request, res: Response) {
 			});
 		}
 
-		// Get user from request (added by authenticateJWT middleware)
-		const userId = req.user?.id;
-
-		if (!userId) {
-			return res.status(401).json({ error: { message: "Not authenticated" } });
-		}
+		const userId = req.user?.id as number;
+		const accessToken = req.user?.notionAccessToken || "";
 
 		const collection = await collectionService.createCollection(userId, {
 			title,
-			pageId,
+			pageId: null,
 			retroParentPageId,
 			retroTitleTemplate,
 			healthCheckParentPageId,
 			healthCheckTitleTemplate,
 		});
 
-		return res.status(201).json({
-			message: "Collection created successfully",
-			collection,
-		});
+		const page = await notionService.createNotionPage(
+			accessToken,
+			title,
+			retroParentPageId,
+		);
+
+		await collectionService.updateCollection(
+			collection?.id as number,
+			userId,
+			accessToken,
+			{
+				pageId: page.id,
+			},
+		);
+
+		return res.status(201).json(collection);
 	} catch (error) {
 		console.error("Create collection error:", error);
 		return res
@@ -89,15 +94,11 @@ export async function createCollection(req: Request, res: Response) {
  */
 export async function getCollections(req: Request, res: Response) {
 	try {
-		const userId = req.user?.id;
-
-		if (!userId) {
-			return res.status(401).json({ error: { message: "Not authenticated" } });
-		}
+		const userId = req.user?.id as number;
 
 		const collections = await collectionService.getCollectionsByUserId(userId);
 
-		return res.json({ collections });
+		return res.json(collections);
 	} catch (error) {
 		console.error("Get collections error:", error);
 		return res
@@ -111,21 +112,17 @@ export async function getCollections(req: Request, res: Response) {
  */
 export async function getCollection(req: Request, res: Response) {
 	try {
-		const id = req.params["id"];
-		const userId = req.user?.id;
+		const collectionId = asInt(req.params["id"]);
+		const userId = req.user?.id as number;
 
-		if (!userId) {
-			return res.status(401).json({ error: { message: "Not authenticated" } });
-		}
-
-		if (!id) {
+		if (!collectionId) {
 			return res.status(400).json({
 				error: { message: "Collection ID is required" },
 			});
 		}
 
-		const collection = await collectionService.getCollectionWithItems(
-			parseInt(id, 10),
+		const collection = await collectionService.getCollectionById(
+			collectionId,
 			userId,
 		);
 
@@ -135,7 +132,7 @@ export async function getCollection(req: Request, res: Response) {
 				.json({ error: { message: "Collection not found" } });
 		}
 
-		return res.json({ collection });
+		return res.json(collection);
 	} catch (error) {
 		console.error("Get collection error:", error);
 		return res
@@ -149,7 +146,7 @@ export async function getCollection(req: Request, res: Response) {
  */
 export async function updateCollection(req: Request, res: Response) {
 	try {
-		const id = req.params["id"];
+		const collectionId = asInt(req.params["id"]);
 		const {
 			title,
 			pageId,
@@ -159,21 +156,19 @@ export async function updateCollection(req: Request, res: Response) {
 			healthCheckTitleTemplate,
 		} = req.body;
 
-		const userId = req.user?.id;
+		const userId = req.user?.id as number;
+		const accessToken = req.user?.notionAccessToken as string;
 
-		if (!userId) {
-			return res.status(401).json({ error: { message: "Not authenticated" } });
-		}
-
-		if (!id) {
+		if (!collectionId) {
 			return res.status(400).json({
 				error: { message: "Collection ID is required" },
 			});
 		}
 
 		const updatedCollection = await collectionService.updateCollection(
-			parseInt(id, 10),
+			collectionId,
 			userId,
+			accessToken,
 			{
 				title,
 				pageId,
@@ -207,22 +202,20 @@ export async function updateCollection(req: Request, res: Response) {
  */
 export async function deleteCollection(req: Request, res: Response) {
 	try {
-		const id = req.params["id"];
-		const userId = req.user?.id;
+		const collectionId = parseInt(req.params["id"] as string, 10);
+		const userId = req.user?.id as number;
+		const accessToken = req.user?.notionAccessToken as string;
 
-		if (!userId) {
-			return res.status(401).json({ error: { message: "Not authenticated" } });
-		}
-
-		if (!id) {
+		if (!collectionId) {
 			return res.status(400).json({
 				error: { message: "Collection ID is required" },
 			});
 		}
 
 		const success = await collectionService.deleteCollection(
-			parseInt(id, 10),
+			collectionId,
 			userId,
+			accessToken,
 		);
 
 		if (!success) {

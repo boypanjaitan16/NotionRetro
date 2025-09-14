@@ -1,7 +1,7 @@
 import type { User } from "@nretro/common/types";
 import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
-import pool from "../utils/db";
+import { findUserById } from "../services/userService";
 
 // TypeScript extension for Request to include user property
 declare global {
@@ -14,7 +14,6 @@ declare global {
 
 const JWT_SECRET = process.env["JWT_SECRET"] || "secret";
 
-// Check if user is authenticated without requiring authentication
 export async function checkAuth(
 	req: Request,
 	_res: Response,
@@ -32,27 +31,19 @@ export async function checkAuth(
 	}
 
 	if (!token) {
-		// No token found, but that's okay, continue without setting user
 		return next();
 	}
 
 	try {
 		const decoded = jwt.verify(token, JWT_SECRET) as any;
 
-		// Get the latest user data from database
-		const [rows] = await pool.query("SELECT * FROM users WHERE id = ?", [
-			decoded.id,
-		]);
+		const user = await findUserById(decoded.id);
 
-		// @ts-expect-error
-		if (rows.length > 0) {
-			// Set user in request object
-			// @ts-expect-error
-			req.user = rows[0] as User;
+		if (user) {
+			req.user = user;
 		}
 		return next();
 	} catch (err) {
-		// Invalid token, but that's okay, continue without setting user
 		return next();
 	}
 }
@@ -62,10 +53,8 @@ export async function authenticateJWT(
 	res: Response,
 	next: NextFunction,
 ) {
-	// Check for token in cookies (for browser sessions)
 	let token = req.cookies ? req.cookies["token"] : undefined;
 
-	// Also check Authorization header (for API calls)
 	if (!token) {
 		const authHeader = req.headers.authorization;
 		if (authHeader) {
@@ -78,21 +67,15 @@ export async function authenticateJWT(
 	try {
 		const decoded = jwt.verify(token, JWT_SECRET) as any;
 
-		// Get the latest user data from database
-		const [rows] = await pool.query("SELECT * FROM users WHERE id = ?", [
-			decoded.id,
-		]);
+		const user = await findUserById(decoded.id, true);
 
-		// @ts-expect-error
-		if (rows.length === 0) {
+		if (!user) {
 			return res.status(401).json({ error: "User not found" });
 		}
 
-		// Set user in request object
-		// @ts-expect-error
-		req.user = rows[0] as User;
+		req.user = user;
 		return next();
 	} catch (err) {
-		return res.status(403).json({ error: "Invalid token" });
+		return res.status(401).json({ error: "Invalid token" });
 	}
 }

@@ -1,22 +1,11 @@
-import { api } from "./api";
+import type { Collection, NotionPage } from "@nretro/common/types";
+import { axiosApi } from "./api";
 
 export interface NotionOAuthResponse {
 	accessToken: string;
 	workspaceName: string;
 	workspaceIcon: string;
 	botId: string;
-}
-
-export interface NotionPage {
-	id: string;
-	title: string;
-	url: string;
-	parent: {
-		type: string;
-		id?: string;
-	};
-	created_time: string;
-	last_edited_time: string;
 }
 
 export interface NotionDatabase {
@@ -28,74 +17,62 @@ export interface NotionDatabase {
 
 export const notionApi = {
 	/**
-	 * Check if user is connected to Notion
+	 * Update Notion token
 	 */
-	checkConnection: async () => {
-		const response = await api.get<{ connected: boolean }>("/notion/status");
-		return response.connected;
+	updateNotionToken: async (data: any) => {
+		return axiosApi.post<{ message: string }>("/notion/token", data);
 	},
 
 	/**
-	 * Get Notion OAuth URL
+	 * Check if user is connected to Notion
 	 */
-	getOAuthUrl: async () => {
-		const response = await api.get<{ url: string }>("/notion/auth");
-		return response.url;
+	checkConnection: async () => {
+		return axiosApi.get<{ connected: boolean }>("/notion/status");
 	},
 
 	/**
 	 * Disconnect from Notion
 	 */
 	disconnect: async () => {
-		await api.post<{ message: string }>(
+		await axiosApi.post<{ message: string }>(
 			"/notion/disconnect",
 			{} as Record<string, unknown>,
 		);
 	},
 
 	/**
+	 * Get all root pages
+	 */
+	getRootPages: async () => {
+		return axiosApi.get<NotionPage[]>("/notion/root-pages");
+	},
+
+	/**
 	 * Get all Notion pages
 	 */
-	getPages: async () => {
-		const response = await api.get<{ pages: NotionPage[] }>("/notion/pages");
-		return response.pages;
+	getPages: async (parentPageId: string) => {
+		return axiosApi.get<{ pages: NotionPage[] }>("/notion/pages", {
+			params: { parent: parentPageId },
+		});
 	},
 
 	/**
 	 * Get all Notion databases
 	 */
 	getDatabases: async () => {
-		const response = await api.get<{ databases: NotionDatabase[] }>(
-			"/notion/databases",
-		);
-		return response.databases;
+		return axiosApi.get<{ databases: NotionDatabase[] }>("/notion/databases");
 	},
 
 	/**
-	 * Sync collection to Notion
+	 * Export collection to Notion
 	 */
-	syncToNotion: async (collectionId: string, databaseId?: string) => {
-		const response = await api.post<{ message: string }>("/sync/notion", {
+	exportToNotion: async (
+		collectionId: Collection["id"],
+		databaseId?: string,
+	) => {
+		return axiosApi.post<{ message: string }>("/sync/notion", {
 			collectionId,
 			databaseId,
 		} as unknown as Record<string, unknown>);
-		return response.message;
-	},
-
-	/**
-	 * Sync from Notion to collection
-	 */
-	syncFromNotion: async (databaseId: string, collectionId?: string) => {
-		const response = await api.post<{ message: string; collectionId: string }>(
-			"/sync/notion/import",
-			{
-				databaseId,
-				collectionId,
-			} as unknown as Record<string, unknown>,
-		);
-		return {
-			message: response.message,
-			collectionId: response.collectionId,
-		};
 	},
 };

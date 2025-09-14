@@ -1,24 +1,16 @@
-import type { Action, Activity } from "@nretro/common/types";
+import type { Action, Activity, User } from "@nretro/common/types";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import db from "../utils/db";
+import { getCollectionById } from "./collectionService";
+import {
+	createNotionPage,
+	removeNotionPage,
+	updateNotionPage,
+} from "./notionService";
+
+const APP_NAME = process.env["APP_NAME"] || "NotionRetro";
 
 type ActivityWithOptionalId = Omit<Activity, "id"> & { id?: number };
-
-/**
- * Convert database row to Activity object
- */
-function rowToActivity(row: Record<string, any>): Activity {
-	return {
-		id: row["id"],
-		collectionId: row["collectionId"],
-		title: row["title"],
-		pageId: row["pageId"],
-		summary: row["summary"],
-		facilitators: JSON.parse(row["facilitators"] || "[]"),
-		participants: JSON.parse(row["participants"] || "[]"),
-		actions: JSON.parse(row["actions"] || "[]"),
-	};
-}
 
 /**
  * Get all activities for a collection
@@ -31,7 +23,7 @@ export async function getActivitiesByCollection(
 		[collectionId],
 	);
 
-	return (rows as Record<string, any>[]).map((row) => rowToActivity(row));
+	return rows as Activity[];
 }
 
 /**
@@ -47,7 +39,7 @@ export async function getActivityById(
 
 	if (!rows.length) return null;
 
-	return rowToActivity(rows[0] as Record<string, any>);
+	return rows[0] as Activity;
 }
 
 /**
@@ -55,52 +47,84 @@ export async function getActivityById(
  */
 export async function createActivity(
 	activity: ActivityWithOptionalId,
-): Promise<number> {
+): Promise<Activity | null> {
+	const collectionId = activity.collectionId;
 	const [result] = await db.query<ResultSetHeader>(
-		`INSERT INTO activities (collectionId, title, pageId, summary, facilitators, participants, actions)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO activities (collectionId, title, summary, facilitator, participants, actions)
+     VALUES (?, ?, ?, ?, ?, ?)`,
 		[
-			activity.collectionId,
+			collectionId,
 			activity.title,
-			activity.pageId,
 			activity.summary,
-			JSON.stringify(activity.facilitators || []),
+			activity.facilitator,
 			JSON.stringify(activity.participants || []),
 			JSON.stringify(activity.actions || []),
 		],
 	);
 
-	return result.insertId;
+	const insertId = (result as { insertId: number }).insertId;
+
+	const [rows] = await db.query("SELECT * FROM activities WHERE id = ?", [
+		insertId,
+	]);
+
+	const collections = rows as unknown[];
+	if (collections.length > 0) {
+		return collections[0] as Activity;
+	}
+	return null;
 }
 
 /**
  * Update an existing activity
  */
-export async function updateActivity(activity: Activity): Promise<boolean> {
-	const [result] = await db.query<ResultSetHeader>(
+export async function updateActivity(
+	activityId: Activity["id"],
+	updateData: Partial<Activity>,
+): Promise<Activity | null> {
+	const existingActivity = await getActivityById(activityId);
+	if (!existingActivity) {
+		throw new Error("Activity not found");
+	}
+
+	const { title, pageId, summary, facilitator, participants, actions } =
+		updateData;
+
+	await db.query<ResultSetHeader>(
 		`UPDATE activities
-     SET collectionId = ?, title = ?, pageId = ?, summary = ?,
-         facilitators = ?, participants = ?, actions = ?
+     SET title = ?, pageId = ?, summary = ?,
+         facilitator = ?, participants = ?, actions = ?
      WHERE id = ?`,
 		[
-			activity.collectionId,
-			activity.title,
-			activity.pageId,
-			activity.summary,
-			JSON.stringify(activity.facilitators || []),
-			JSON.stringify(activity.participants || []),
-			JSON.stringify(activity.actions || []),
-			activity.id,
+			title || existingActivity.title,
+			pageId || existingActivity.pageId,
+			summary || existingActivity.summary,
+			facilitator || existingActivity.facilitator,
+			JSON.stringify(participants || existingActivity.participants),
+			JSON.stringify(actions || existingActivity.actions),
+			activityId,
 		],
 	);
 
-	return result.affectedRows > 0;
+	return await getActivityById(activityId);
 }
 
 /**
  * Delete an activity
  */
-export async function deleteActivity(activityId: number): Promise<boolean> {
+export async function deleteActivity(
+	activityId: number,
+	notionAccessToken: string,
+): Promise<boolean> {
+	const exisitingActivity = await getActivityById(activityId);
+	if (!exisitingActivity) {
+		return false;
+	}
+
+	if (exisitingActivity.pageId) {
+		await removeNotionPage(notionAccessToken, exisitingActivity.pageId);
+	}
+
 	const [result] = await db.query<ResultSetHeader>(
 		`DELETE FROM activities WHERE id = ?`,
 		[activityId],
@@ -109,52 +133,160 @@ export async function deleteActivity(activityId: number): Promise<boolean> {
 	return result.affectedRows > 0;
 }
 
-/**
- * Add an action to an activity
- */
-export async function addActionToActivity(
-	activityId: number,
-	action: Action,
-): Promise<boolean> {
+export async function publishToNotion(
+	activityId: Activity["id"],
+	userId: User["id"],
+	notionAccessToken: string,
+): Promise<{
+	id: string;
+	url: string;
+	title: string;
+}> {
 	const activity = await getActivityById(activityId);
-	if (!activity) return false;
-
-	activity.actions.push(action);
-
-	return updateActivity(activity);
-}
-
-/**
- * Update an action in an activity
- */
-export async function updateActionInActivity(
-	activityId: number,
-	actionIndex: number,
-	updatedAction: Action,
-): Promise<boolean> {
-	const activity = await getActivityById(activityId);
-	if (!activity || actionIndex < 0 || actionIndex >= activity.actions.length) {
-		return false;
+	if (!activity) {
+		throw new Error("Activity not found");
 	}
 
-	activity.actions[actionIndex] = updatedAction;
+	const collection = await getCollectionById(activity.collectionId, userId);
 
-	return updateActivity(activity);
-}
-
-/**
- * Remove an action from an activity
- */
-export async function removeActionFromActivity(
-	activityId: number,
-	actionIndex: number,
-): Promise<boolean> {
-	const activity = await getActivityById(activityId);
-	if (!activity || actionIndex < 0 || actionIndex >= activity.actions.length) {
-		return false;
+	if (!collection) {
+		throw new Error("Collection not found");
 	}
 
-	activity.actions.splice(actionIndex, 1);
+	const { participants, actions, summary, facilitator } = activity;
+	const participantsBlocks = (participants || []).map(
+		(participant: string) => ({
+			object: "block",
+			type: "bulleted_list_item",
+			bulleted_list_item: {
+				rich_text: [{ type: "text", text: { content: participant } }],
+			},
+		}),
+	);
+	const actionsBodyBlocks = (actions || []).map((action: Action) => ({
+		object: "block",
+		type: "table_row",
+		table_row: {
+			cells: [
+				[{ type: "text", text: { content: action.title } }],
+				[{ type: "text", text: { content: action.dueDate } }],
+				[{ type: "text", text: { content: action.assignee } }],
+				[{ type: "text", text: { content: action.priority } }],
+			],
+		},
+	}));
+	const children = [
+		{
+			object: "block",
+			type: "paragraph",
+			paragraph: {
+				rich_text: [
+					{ type: "text", text: { content: `Created by ${APP_NAME}` } },
+				],
+			},
+		},
+		{
+			object: "block",
+			type: "heading_3",
+			heading_3: {
+				rich_text: [{ type: "text", text: { content: "Summary" } }],
+			},
+		},
+		{
+			object: "block",
+			type: "paragraph",
+			paragraph: {
+				rich_text: [{ type: "text", text: { content: summary } }],
+			},
+		},
+		{
+			object: "block",
+			type: "heading_3",
+			heading_3: {
+				rich_text: [{ type: "text", text: { content: "Facilitator" } }],
+			},
+		},
+		{
+			object: "block",
+			type: "bulleted_list_item",
+			bulleted_list_item: {
+				rich_text: [{ type: "text", text: { content: facilitator } }],
+			},
+		},
+		{
+			object: "block",
+			type: "heading_3",
+			heading_3: {
+				rich_text: [{ type: "text", text: { content: "Participants" } }],
+			},
+		},
+		...participantsBlocks,
+		{
+			object: "block",
+			type: "heading_3",
+			heading_3: {
+				rich_text: [{ type: "text", text: { content: "Not present" } }],
+			},
+		},
 
-	return updateActivity(activity);
+		{
+			object: "block",
+			type: "heading_2",
+			heading_2: {
+				rich_text: [{ type: "text", text: { content: "Action Plan" } }],
+			},
+		},
+		{
+			object: "block",
+			type: "heading_3",
+			heading_3: {
+				rich_text: [{ type: "text", text: { content: "New Actions" } }],
+			},
+		},
+		{
+			object: "block",
+			type: "table",
+			table: {
+				table_width: 4,
+				has_column_header: true,
+				has_row_header: false,
+				children: [
+					{
+						object: "block",
+						type: "table_row",
+						table_row: {
+							cells: [
+								[{ type: "text", text: { content: "Action" } }],
+								[{ type: "text", text: { content: "Due Date" } }],
+								[{ type: "text", text: { content: "Assigned to" } }],
+								[{ type: "text", text: { content: "Priority" } }],
+							],
+						},
+					},
+					...actionsBodyBlocks,
+				],
+			},
+		},
+	];
+
+	let page = null;
+
+	if (activity.pageId) {
+		page = await updateNotionPage(
+			notionAccessToken,
+			activity.pageId,
+			activity.title,
+			children,
+		);
+	} else {
+		page = await createNotionPage(
+			notionAccessToken,
+			activity.title,
+			collection.pageId,
+			children,
+		);
+	}
+
+	await updateActivity(activityId, { pageId: page.id });
+	return page;
 }

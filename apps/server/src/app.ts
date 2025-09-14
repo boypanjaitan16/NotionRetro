@@ -5,8 +5,10 @@ import dotenv from "dotenv";
 import express from "express";
 
 import { errorHandler } from "./middleware/errorHandler";
-// Import middleware
 import { methodOverride } from "./middleware/methodOverride";
+
+import apiRoutes from "./routes/api";
+import webRoutes from "./routes/web";
 
 // Initialize DB (this will create tables)
 import "./utils/db";
@@ -31,23 +33,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "../public")));
 
-// Method override for PUT and DELETE requests
 app.use(methodOverride);
 
-// Import API routes
-import apiRoutes from "./routes/api";
-
-// API routes with /api prefix
 app.use("/api", apiRoutes);
-
-// Root route
-app.get("/", (_req, res) => {
-	res.json({
-		message: "NotionRetro API Server",
-		version: "1.0.0",
-		documentation: "/api-docs",
-	});
-});
+app.use("/", webRoutes);
 
 // Error handling middleware
 app.use(errorHandler);

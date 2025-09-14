@@ -1,17 +1,33 @@
+import { Button, Menu } from "@mantine/core";
+import classNames from "classnames";
 import { Link, Outlet, useNavigate } from "react-router-dom";
+import { useNotionDisconnect } from "@/hooks/useNotion";
+import { handleConnectNotion } from "@/utils/notion";
 import { useLogout } from "../hooks/useAuth";
 import { useAuthStore } from "../stores/authStore";
+import { NotionConnectionStatus } from "./NotionConnectionStatus";
 
 export function Layout() {
 	const { isAuthenticated, user } = useAuthStore();
 	const navigate = useNavigate();
 	const logout = useLogout();
+	const disconnect = useNotionDisconnect();
 
 	const handleLogout = () => {
 		logout.mutate(undefined, {
 			onSuccess: () => {
 				navigate("/");
 			},
+		});
+	};
+
+	const handleConnect = () => {
+		handleConnectNotion();
+	};
+
+	const handleDisconnect = () => {
+		disconnect.mutateAsync().then(() => {
+			console.log("Disconnected from Notion");
 		});
 	};
 
@@ -23,7 +39,7 @@ export function Layout() {
 					<div className="flex justify-between h-16">
 						<div className="flex">
 							<div className="flex-shrink-0 flex items-center">
-								<Link to="/" className="text-xl font-bold text-indigo-600">
+								<Link to="/" className="text-xl font-bold text-blue-600">
 									NotionRetro
 								</Link>
 							</div>
@@ -31,30 +47,50 @@ export function Layout() {
 						</div>
 						<div className="flex items-center">
 							{isAuthenticated ? (
-								<div className="flex items-center space-x-4">
-									<span className="text-sm text-gray-500">{user?.name}</span>
-									<button
-										type="button"
-										onClick={handleLogout}
-										className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-									>
-										Logout
-									</button>
-								</div>
+								<Menu trigger="hover" withArrow>
+									<Menu.Target>
+										<button
+											type="button"
+											className={classNames(
+												"flex items-center flex-row gap-2 px-5 py-1.5 rounded hover:ring-1",
+												{
+													"ring-green-600": user?.isNotionConnected,
+													"ring-red-500": !user?.isNotionConnected,
+												},
+											)}
+										>
+											<span className="font-semibold">{user?.name}</span>
+
+											{user?.isNotionConnected ? (
+												<span className="size-3 rounded-full bg-green-600"></span>
+											) : (
+												<span className="size-3 rounded-full bg-red-500"></span>
+											)}
+										</button>
+									</Menu.Target>
+									<Menu.Dropdown>
+										<Menu.Item
+											onClick={
+												user?.isNotionConnected
+													? handleDisconnect
+													: handleConnect
+											}
+										>
+											{!user?.isNotionConnected
+												? "Connect to Notion"
+												: "Disconnect from Notion"}
+										</Menu.Item>
+										<Menu.Item onClick={handleLogout}>Logout</Menu.Item>
+									</Menu.Dropdown>
+								</Menu>
 							) : (
 								<div className="flex items-center space-x-4">
-									<Link
-										to="/login"
-										className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-									>
+									<Button component={Link} to="/login">
 										Login
-									</Link>
-									<Link
-										to="/signup"
-										className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-									>
+									</Button>
+									<Button component={Link} to="/signup" variant="outline">
 										Sign Up
-									</Link>
+									</Button>
 								</div>
 							)}
 						</div>
@@ -62,8 +98,10 @@ export function Layout() {
 				</div>
 			</header>
 
+			<NotionConnectionStatus />
+
 			{/* Main content */}
-			<main className="flex flex-col flex-grow md:px-24 lg:px-32">
+			<main className="flex flex-col flex-grow px-5 md:px-24 lg:px-32">
 				<Outlet />
 			</main>
 

@@ -1,5 +1,6 @@
 import type { User } from "@nretro/common/types";
 import bcrypt from "bcrypt";
+import type { QueryResult } from "mysql2";
 import pool from "../utils/db";
 
 export async function createUser(
@@ -14,17 +15,56 @@ export async function createUser(
 	);
 	// @ts-expect-error
 	const id = result.insertId;
-	return { id, email, passwordHash: hashed, name };
+	return { id, email, passwordHash: hashed, name, isNotionConnected: false };
 }
 
 export async function findUserByEmail(
 	email: string,
 ): Promise<User | undefined> {
-	const [rows] = await pool.query("SELECT * FROM users WHERE email = ?", [
-		email,
-	]);
+	const [rows] = await pool.query<QueryResult>(
+		"SELECT * FROM users WHERE email = ?",
+		[email],
+	);
+
 	// @ts-expect-error
-	return rows.length > 0 ? rows[0] : undefined;
+	const user = rows.length > 0 ? (rows[0] as User) : undefined;
+
+	if (!user) return undefined;
+
+	user.isNotionConnected = false;
+
+	if (user?.notionAccessToken) {
+		user.isNotionConnected = true;
+	}
+
+	const { notionAccessToken: _, ...newUser } = user;
+
+	return newUser;
+}
+
+export async function findUserById(
+	id: number,
+	withFullProfile = false,
+): Promise<User | undefined> {
+	const [rows] = await pool.query<QueryResult>(
+		"SELECT * FROM users WHERE id = ?",
+		[id],
+	);
+
+	// @ts-expect-error
+	const user = rows.length > 0 ? (rows[0] as User) : undefined;
+
+	if (!user) return undefined;
+
+	user.isNotionConnected = false;
+
+	if (user?.notionAccessToken) {
+		user.isNotionConnected = true;
+	}
+
+	const { notionAccessToken: _, ...newUser } = user;
+
+	return withFullProfile ? user : newUser;
 }
 
 export async function validateUser(
@@ -42,7 +82,6 @@ export async function updateNotionToken(
 	tokenData: any | null,
 ): Promise<void> {
 	if (tokenData === null) {
-		// Clear token data
 		await pool.query(
 			"UPDATE users SET notionAccessToken = NULL, notionWorkspaceId = NULL, notionWorkspaceName = NULL, notionBotId = NULL, notionTokenExpiresAt = NULL WHERE id = ?",
 			[userId],

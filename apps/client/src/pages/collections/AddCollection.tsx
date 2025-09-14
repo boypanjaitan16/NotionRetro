@@ -1,40 +1,32 @@
-import { zodResolver } from "@hookform/resolvers/zod";
-import classnames from "classnames";
-import { useId } from "react";
-import { useForm } from "react-hook-form";
+import { Button, Select, TextInput } from "@mantine/core";
+import { useForm } from "@mantine/form";
+import { zod4Resolver } from "mantine-form-zod-resolver";
+import { Link, useNavigate } from "react-router-dom";
 import { useCreateCollection } from "@/hooks/useCollections";
+import { useNotionRootPages } from "@/hooks/useNotion";
 import {
 	type CreateCollectionValues,
 	createCollectionSchema,
 } from "@/schemas/collection.schema";
 
 const AddCollectionPage = () => {
-	const titleId = useId();
-	const retroParentPageIdId = useId();
-	const retroTitleTemplateId = useId();
-	const healthCheckParentPageIdId = useId();
-	const healthCheckTitleTemplateId = useId();
-
+	const navigate = useNavigate();
 	const createCollection = useCreateCollection();
+	const rootPages = useNotionRootPages();
 
-	const {
-		register,
-		handleSubmit,
-		setError,
-		formState: { errors, isSubmitting },
-	} = useForm<CreateCollectionValues>({
-		resolver: zodResolver(createCollectionSchema),
-		defaultValues: {
+	const form = useForm<CreateCollectionValues>({
+		mode: "uncontrolled",
+		initialValues: {
 			title: "",
 			retroParentPageId: "",
 			retroTitleTemplate: "",
 			healthCheckParentPageId: "",
 			healthCheckTitleTemplate: "",
 		},
+		validate: zod4Resolver(createCollectionSchema),
 	});
 
-	const handleSignup = async (data: CreateCollectionValues) => {
-		// Create a signup payload that omits confirmPassword
+	const handleCreate = async (data: CreateCollectionValues) => {
 		const collectionData = {
 			title: data.title,
 			retroParentPageId: data.retroParentPageId,
@@ -45,158 +37,105 @@ const AddCollectionPage = () => {
 
 		createCollection
 			.mutateAsync(collectionData)
-			.then(() => {})
+			.then(() => {
+				navigate("/collections");
+			})
 			.catch((error) => {
-				setError(
-					"title",
-					{
-						message: error.message,
-					},
-					{
-						shouldFocus: true,
-					},
-				);
+				form.setErrors({
+					title: error.message,
+				});
 			});
 	};
 
 	return (
 		<div className="py-5 md:py-12">
-			<h2 className="text-2xl">Create New Collection</h2>
-			<form className="mt-10 max-w-md" onSubmit={handleSubmit(handleSignup)}>
+			<div>
+				<div className="flex flex-row items-center gap-3 mb-3">
+					<Link to="/collections">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 24 24"
+							strokeWidth="1.5"
+							stroke="currentColor"
+							className="size-5"
+						>
+							<title>Back to Collections</title>
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"
+							/>
+						</svg>
+					</Link>
+					<span className="text-gray-500">Collections</span>
+				</div>
+				<h2 className="text-2xl">Create New Collection</h2>
+			</div>
+			<form className="mt-10" onSubmit={form.onSubmit(handleCreate)}>
 				<div className="mb-4">
-					<label
-						htmlFor={titleId}
-						className="block text-sm font-medium text-gray-700 mb-1"
-					>
-						Title
-					</label>
-					<input
-						id={titleId}
-						type="text"
-						{...register("title")}
-						className={classnames(
-							`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500`,
-							{
-								"border-red-500": errors.title,
-							},
-						)}
+					<TextInput
+						{...form.getInputProps("title")}
+						key={form.key("title")}
+						withAsterisk
+						label="Title"
 						autoComplete="title"
 					/>
-					{errors.title && (
-						<p className="mt-1 text-sm text-red-600">{errors.title.message}</p>
-					)}
 				</div>
 
 				<div className="mb-4">
-					<label
-						htmlFor={retroParentPageIdId}
-						className="block text-sm font-medium text-gray-700 mb-1"
-					>
-						Retro Parent Page
-					</label>
-					<input
-						id={retroParentPageIdId}
-						type="text"
-						{...register("retroParentPageId")}
-						className={classnames(
-							`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500`,
-							{
-								"border-red-500": errors.retroParentPageId,
-							},
-						)}
-						autoComplete="retroParentPageId"
+					<Select
+						{...form.getInputProps("retroParentPageId")}
+						key={form.key("retroParentPageId")}
+						withAsterisk
+						label="Retro Parent Page"
+						data={rootPages.data?.data.map((page) => ({
+							value: page.id,
+							label: page.title,
+						}))}
 					/>
-					{errors.retroParentPageId && (
-						<p className="mt-1 text-sm text-red-600">
-							{errors.retroParentPageId.message}
-						</p>
-					)}
 				</div>
 
 				<div className="mb-4">
-					<label
-						htmlFor={retroTitleTemplateId}
-						className="block text-sm font-medium text-gray-700 mb-1"
-					>
-						Retro Title Template
-					</label>
-					<input
-						id={retroTitleTemplateId}
-						type="text"
-						{...register("retroTitleTemplate")}
-						className={classnames(
-							`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500`,
-							{
-								"border-red-500": errors.retroTitleTemplate,
-							},
-						)}
-						autoComplete="new-password"
+					<TextInput
+						{...form.getInputProps("retroTitleTemplate")}
+						key={form.key("retroTitleTemplate")}
+						withAsterisk
+						label="Retro Title Template"
+						error={form.errors.retroTitleTemplate}
 					/>
-					{errors.retroTitleTemplate && (
-						<p className="mt-1 text-sm text-red-600">
-							{errors.retroTitleTemplate.message}
-						</p>
-					)}
 				</div>
 
 				<div className="mb-6">
-					<label
-						htmlFor={healthCheckParentPageIdId}
-						className="block text-sm font-medium text-gray-700 mb-1"
-					>
-						Health Check Parent Page
-					</label>
-					<input
-						id={healthCheckParentPageIdId}
-						type="text"
-						{...register("healthCheckParentPageId")}
-						className={classnames(
-							`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500`,
-							{
-								"border-red-500": errors.healthCheckParentPageId,
-							},
-						)}
-						autoComplete="new-password"
+					<Select
+						{...form.getInputProps("healthCheckParentPageId")}
+						key={form.key("healthCheckParentPageId")}
+						withAsterisk
+						label="Health Check Parent Page"
+						data={rootPages.data?.data.map((page) => ({
+							value: page.id,
+							label: page.title,
+						}))}
 					/>
-					{errors.healthCheckParentPageId && (
-						<p className="mt-1 text-sm text-red-600">
-							{errors.healthCheckParentPageId.message}
-						</p>
-					)}
 				</div>
 				<div className="mb-6">
-					<label
-						htmlFor={healthCheckTitleTemplateId}
-						className="block text-sm font-medium text-gray-700 mb-1"
-					>
-						Health Check Title Template
-					</label>
-					<input
-						id={healthCheckTitleTemplateId}
-						type="text"
-						{...register("healthCheckTitleTemplate")}
-						className={classnames(
-							`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500`,
-							{
-								"border-red-500": errors.healthCheckTitleTemplate,
-							},
-						)}
-						autoComplete="new-password"
+					<TextInput
+						{...form.getInputProps("healthCheckTitleTemplate")}
+						key={form.key("healthCheckTitleTemplate")}
+						withAsterisk
+						label="Health Check Title Template"
 					/>
-					{errors.healthCheckTitleTemplate && (
-						<p className="mt-1 text-sm text-red-600">
-							{errors.healthCheckTitleTemplate.message}
-						</p>
-					)}
 				</div>
 
-				<button
+				<Button
 					type="submit"
-					className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-					disabled={isSubmitting}
+					fullWidth
+					disabled={createCollection.isPending}
+					loading={createCollection.isPending}
+					loaderProps={{ type: "dots" }}
 				>
-					{isSubmitting ? "Creating collection..." : "Create Collection"}
-				</button>
+					{"Create Collection"}
+				</Button>
 			</form>
 		</div>
 	);

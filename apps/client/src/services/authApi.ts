@@ -1,14 +1,9 @@
 import type { User } from "@nretro/common/types";
+import type {
+	LoginFormValues,
+	RegisterFormValues,
+} from "@/schemas/auth.schema";
 import { axiosApi } from "./api";
-
-export interface LoginCredentials {
-	email: string;
-	password: string;
-}
-
-export interface SignupCredentials extends LoginCredentials {
-	name?: string;
-}
 
 interface AuthResponse {
 	user: User;
@@ -20,7 +15,7 @@ export const authApi = {
 	/**
 	 * Log in a user
 	 */
-	login: async (credentials: LoginCredentials) => {
+	login: async (credentials: LoginFormValues) => {
 		return axiosApi.post<AuthResponse>(
 			"/auth/login",
 			credentials as unknown as Record<string, unknown>,
@@ -30,7 +25,7 @@ export const authApi = {
 	/**
 	 * Sign up a new user
 	 */
-	signup: async (credentials: SignupCredentials) => {
+	signup: async (credentials: RegisterFormValues) => {
 		return axiosApi.post<AuthResponse>(
 			"/auth/signup",
 			credentials as unknown as Record<string, unknown>,

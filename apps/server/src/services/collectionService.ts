@@ -1,25 +1,6 @@
+import type { Collection, User } from "@nretro/common/types";
 import db from "../utils/db";
-import { removeNotionPage } from "./notionService";
-
-// Database record type
-export type CollectionRecord = {
-	id: number;
-	userId: number;
-	title: string;
-	pageId: string | null;
-	retroParentPageId: string | null;
-	retroTitleTemplate: string | null;
-	healthCheckParentPageId: string | null;
-	healthCheckTitleTemplate: string | null;
-};
-
-// Extended record with items
-export interface CollectionWithItems extends CollectionRecord {
-	items: unknown[]; // Using unknown[] instead of any[]
-}
-
-const REMOVE_PAGE_ON_COLLECTION_DELETION =
-	process.env["APP_REMOVE_PAGE_ON_COLLECTION_DELETION"];
+import { removeNotionPage, updateNotionPage } from "./notionService";
 
 /**
  * Create a new collection
@@ -34,7 +15,7 @@ export async function createCollection(
 		healthCheckParentPageId?: string | null;
 		healthCheckTitleTemplate?: string | null;
 	},
-): Promise<CollectionRecord | null> {
+): Promise<Collection | null> {
 	const {
 		title,
 		pageId,
@@ -77,7 +58,7 @@ export async function createCollection(
 
 	const collections = rows as unknown[];
 	if (collections.length > 0) {
-		return collections[0] as CollectionRecord;
+		return collections[0] as Collection;
 	}
 	return null;
 }
@@ -86,22 +67,22 @@ export async function createCollection(
  * Get all collections for a user
  */
 export async function getCollectionsByUserId(
-	userId: number,
-): Promise<CollectionRecord[]> {
+	userId: User["id"],
+): Promise<Collection[]> {
 	const [rows] = await db.query("SELECT * FROM collections WHERE userId = ?", [
 		userId,
 	]);
 
-	return rows as CollectionRecord[];
+	return rows as Collection[];
 }
 
 /**
- * Get a single collection by ID with its items
+ * Get a single collection by ID with its activities
  */
-export async function getCollectionWithItems(
+export async function getCollectionWithActivities(
 	collectionId: number,
 	userId: number,
-): Promise<CollectionWithItems | null> {
+): Promise<Collection | null> {
 	// Get the collection
 	const [collectionRows] = await db.query(
 		"SELECT * FROM collections WHERE id = ? AND userId = ?",
@@ -113,16 +94,7 @@ export async function getCollectionWithItems(
 		return null;
 	}
 
-	const collection = collections[0] as CollectionWithItems;
-
-	// Get the items in the collection
-	const [itemRows] = await db.query(
-		"SELECT * FROM items WHERE collectionId = ?",
-		[collectionId],
-	);
-
-	// Add items to the collection
-	collection.items = Array.isArray(itemRows) ? itemRows : [];
+	const collection = collections[0] as Collection;
 
 	return collection;
 }
@@ -131,9 +103,9 @@ export async function getCollectionWithItems(
  * Get a single collection by ID
  */
 export async function getCollectionById(
-	collectionId: number,
-	userId: number,
-): Promise<CollectionRecord | null> {
+	collectionId: Collection["id"],
+	userId: User["id"],
+): Promise<Collection | null> {
 	const [rows] = await db.query(
 		"SELECT * FROM collections WHERE id = ? AND userId = ?",
 		[collectionId, userId],
@@ -142,7 +114,7 @@ export async function getCollectionById(
 	const collections = rows as unknown[];
 
 	if (collections.length > 0) {
-		return collections[0] as CollectionRecord;
+		return collections[0] as Collection;
 	}
 	return null;
 }
@@ -153,20 +125,13 @@ export async function getCollectionById(
 export async function updateCollection(
 	collectionId: number,
 	userId: number,
-	updateData: {
-		title?: string;
-		pageId?: string | null;
-		retroParentPageId?: string | null;
-		retroTitleTemplate?: string | null;
-		healthCheckParentPageId?: string | null;
-		healthCheckTitleTemplate?: string | null;
-	},
-): Promise<CollectionRecord | null> {
-	// First check if the collection exists and belongs to the user
+	accessToken: string,
+	updateData: Partial<Collection>,
+): Promise<Collection | null> {
 	const existingCollection = await getCollectionById(collectionId, userId);
 
 	if (!existingCollection) {
-		return null;
+		throw new Error("Collection not found");
 	}
 
 	const {
@@ -189,25 +154,28 @@ export async function updateCollection(
 			healthCheckTitleTemplate = ?
 		WHERE id = ?`,
 		[
-			title !== undefined ? title : existingCollection.title,
-			pageId !== undefined ? pageId : existingCollection.pageId,
-			retroParentPageId !== undefined
-				? retroParentPageId
-				: existingCollection.retroParentPageId,
-			retroTitleTemplate !== undefined
-				? retroTitleTemplate
-				: existingCollection.retroTitleTemplate,
-			healthCheckParentPageId !== undefined
-				? healthCheckParentPageId
-				: existingCollection.healthCheckParentPageId,
-			healthCheckTitleTemplate !== undefined
-				? healthCheckTitleTemplate
-				: existingCollection.healthCheckTitleTemplate,
+			title || existingCollection.title,
+			pageId || existingCollection.pageId,
+			retroParentPageId || existingCollection.retroParentPageId,
+			retroTitleTemplate || existingCollection.retroTitleTemplate,
+			healthCheckParentPageId || existingCollection.healthCheckParentPageId,
+			healthCheckTitleTemplate || existingCollection.healthCheckTitleTemplate,
 			collectionId,
 		],
 	);
 
-	// Get the updated collection
+	if (title && existingCollection.title !== title) {
+		const pageUpdated = await updateNotionPage(
+			accessToken,
+			existingCollection.pageId as string,
+			title as string,
+		);
+
+		if (!pageUpdated) {
+			throw new Error("Failed to update Notion page");
+		}
+	}
+
 	return await getCollectionById(collectionId, userId);
 }
 
@@ -215,29 +183,19 @@ export async function updateCollection(
  * Delete a collection
  */
 export async function deleteCollection(
-	collectionId: number,
-	userId: number,
+	collectionId: Collection["id"],
+	userId: User["id"],
 	accessToken?: string,
 ): Promise<boolean> {
-	// First check if the collection exists and belongs to the user
 	const existingCollection = await getCollectionById(collectionId, userId);
 
 	if (!existingCollection) {
 		return false;
 	}
 
-	// Delete all items in the collection first
-	await db.query("DELETE FROM items WHERE collectionId = ?", [collectionId]);
-
-	// Delete the collection
 	await db.query("DELETE FROM collections WHERE id = ?", [collectionId]);
 
-	// If configured and we have an access token, delete the Notion page
-	if (
-		accessToken &&
-		existingCollection.pageId &&
-		REMOVE_PAGE_ON_COLLECTION_DELETION === "true"
-	) {
+	if (accessToken && existingCollection.pageId) {
 		await removeNotionPage(accessToken, existingCollection.pageId);
 	}
 

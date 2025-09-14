@@ -4,8 +4,8 @@
 	"description": "",
 	"main": "index.js",
 	"scripts": {
-		"dev": "tsc --watch",
-		"build": "tsc",
+		"dev": "tsup --watch",
+		"build": "tsup",
 		"lint": "biome check ./src",
 		"lint:fix": "biome check --write ./src",
 		"check-types": "tsc --noEmit"
@@ -17,15 +17,28 @@
 	"exports": {
 		"./types": {
 			"import": {
-				"types": "./dist/types/index.d.ts",
-				"default": "./dist/index.js"
+				"types": "./dist/types/index.d.mts",
+				"default": "./dist/types/index.mjs"
 			},
 			"require": {
 				"types": "./dist/types/index.d.ts",
-				"default": "./dist/index.cjs"
+				"default": "./dist/types/index.js"
+			}
+		},
+		"./utils": {
+			"import": {
+				"types": "./dist/utils/index.d.mts",
+				"default": "./dist/utils/index.mjs"
+			},
+			"require": {
+				"types": "./dist/utils/index.d.ts",
+				"default": "./dist/utils/index.js"
 			}
 		}
 	},
 	"author": "Boy BOni Panjaitan",
-	"license": "ISC"
+	"license": "ISC",
+	"devDependencies": {
+		"tsup": "^8.5.0"
+	}
 }

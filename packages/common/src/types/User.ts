@@ -8,4 +8,5 @@ export interface User {
 	notionWorkspaceName?: string;
 	notionBotId?: string;
 	notionTokenExpiresAt?: Date;
+	isNotionConnected: boolean;
 }

@@ -4,7 +4,7 @@ export interface Activity {
 	title: string;
 	pageId: string;
 	summary: string;
-	facilitators: string[];
+	facilitator: string;
 	participants: string[];
 	actions: Action[];
 }

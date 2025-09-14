@@ -1,7 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { LoginCredentials, SignupCredentials } from "../services/authApi";
+import type {
+	LoginFormValues,
+	RegisterFormValues,
+} from "@/schemas/auth.schema";
 import { authApi } from "../services/authApi";
 import { useAuthStore } from "../stores/authStore";
+import { collectionKeys } from "./useCollections";
 
 // Query keys
 export const authKeys = {
@@ -10,41 +14,37 @@ export const authKeys = {
 	session: () => [...authKeys.all, "session"] as const,
 };
 
-// Hook for getting the current user
 export function useCurrentUser() {
 	const { isAuthenticated } = useAuthStore();
 
 	return useQuery({
 		queryKey: authKeys.user(),
 		queryFn: authApi.getCurrentUser,
-		// Only fetch if user is authenticated according to local state
 		enabled: isAuthenticated,
-		// Don't refetch on window focus if not authenticated
 		refetchOnWindowFocus: isAuthenticated,
-		// Retry only once if error
 		retry: 1,
 	});
 }
 
-// Hook for login mutation
 export function useLogin() {
 	const queryClient = useQueryClient();
 
 	return useMutation({
-		mutationFn: (credentials: LoginCredentials) => authApi.login(credentials),
+		mutationFn: (credentials: LoginFormValues) => authApi.login(credentials),
 		onSuccess: ({ data }) => {
 			useAuthStore.getState().login(data.token, data.user);
 			queryClient.invalidateQueries({ queryKey: authKeys.user() });
+			queryClient.invalidateQueries({ queryKey: collectionKeys.all });
 		},
 	});
 }
 
-// Hook for signup mutation
 export function useSignup() {
 	const queryClient = useQueryClient();
 
 	return useMutation({
-		mutationFn: (credentials: SignupCredentials) => authApi.signup(credentials),
+		mutationFn: (credentials: RegisterFormValues) =>
+			authApi.signup(credentials),
 		onSuccess: ({ data }) => {
 			useAuthStore.getState().login(data.token, data.user);
 			queryClient.invalidateQueries({ queryKey: authKeys.user() });
@@ -52,7 +52,6 @@ export function useSignup() {
 	});
 }
 
-// Hook for logout mutation
 export function useLogout() {
 	const queryClient = useQueryClient();
 

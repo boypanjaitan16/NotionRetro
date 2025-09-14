@@ -3,17 +3,17 @@ import { useEffect } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { useCurrentUser } from "./hooks/useAuth";
-
+import AddActivityPage from "./pages/activities/AddActivity";
+import EditActivityPage from "./pages/activities/EditActivity";
 import AddCollectionPage from "./pages/collections/AddCollection";
 import CollectionsPage from "./pages/collections/Collections";
+import DetailCollectionPage from "./pages/collections/DetailCollection";
+import EditCollectionPage from "./pages/collections/EditCollection";
 import HomePage from "./pages/Home";
 import Login from "./pages/Login";
+import NotFoundPage from "./pages/NotFound";
 import Signup from "./pages/Signup";
 import { useAuthStore } from "./stores/authStore";
-
-const CollectionDetails = () => <div>Collection Details Page</div>;
-const NotionConnect = () => <div>Notion Connect Page</div>;
-const NotFound = () => <div>404 - Not Found</div>;
 
 // Protected route component
 interface ProtectedRouteProps {
@@ -23,7 +23,6 @@ interface ProtectedRouteProps {
 function ProtectedRoute({ element }: ProtectedRouteProps) {
 	const { isAuthenticated, isLoading } = useAuthStore();
 
-	// If authentication is still loading, show nothing
 	if (isLoading) {
 		return (
 			<div className="flex justify-center items-center min-h-screen">
@@ -32,25 +31,22 @@ function ProtectedRoute({ element }: ProtectedRouteProps) {
 		);
 	}
 
-	// If not authenticated, redirect to login
 	if (!isAuthenticated) {
 		return <Navigate to="/login" replace />;
 	}
 
-	// Otherwise, render the protected component
 	return element;
 }
 
 function App() {
-	const { isAuthenticated } = useAuthStore();
-	const { refetch } = useCurrentUser();
+	const { isAuthenticated, setUser } = useAuthStore();
+	const getUser = useCurrentUser();
 
-	// Check user authentication status on app load
 	useEffect(() => {
-		if (isAuthenticated) {
-			refetch();
+		if (isAuthenticated && getUser.isSuccess) {
+			setUser(getUser.data.data.user);
 		}
-	}, [isAuthenticated, refetch]);
+	}, [isAuthenticated, getUser, setUser]);
 
 	return (
 		<BrowserRouter>
@@ -71,12 +67,25 @@ function App() {
 						element={<ProtectedRoute element={<AddCollectionPage />} />}
 					/>
 					<Route
-						path="notion"
-						element={<ProtectedRoute element={<NotionConnect />} />}
+						path="collections/:id"
+						element={<ProtectedRoute element={<DetailCollectionPage />} />}
+					/>
+					<Route
+						path="collections/:id/edit"
+						element={<ProtectedRoute element={<EditCollectionPage />} />}
+					/>
+
+					<Route
+						path="collections/:id/activity"
+						element={<ProtectedRoute element={<AddActivityPage />} />}
+					/>
+					<Route
+						path="collections/:id/activity/:activityId/edit"
+						element={<ProtectedRoute element={<EditActivityPage />} />}
 					/>
 
 					{/* NotFound route */}
-					<Route path="*" element={<NotFound />} />
+					<Route path="*" element={<NotFoundPage />} />
 				</Route>
 			</Routes>
 		</BrowserRouter>

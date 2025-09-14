@@ -1,7 +1,14 @@
 import type { Collection } from "@nretro/common/types";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { CreateCollectionValues } from "@/schemas/collection.schema";
-import type { CollectionUpdate } from "../services/collectionsApi";
+import {
+	useMutation,
+	useQuery,
+	useQueryClient,
+	useSuspenseQuery,
+} from "@tanstack/react-query";
+import type {
+	CreateCollectionValues,
+	UpdateCollectionValues,
+} from "@/schemas/collection.schema";
 import { collectionsApi } from "../services/collectionsApi";
 
 // Query keys for collections
@@ -23,10 +30,9 @@ export function useCollections() {
 
 // Hook for fetching a single collection
 export function useCollection(id: Collection["id"]) {
-	return useQuery({
+	return useSuspenseQuery({
 		queryKey: collectionKeys.detail(id),
 		queryFn: () => collectionsApi.getCollection(id),
-		enabled: !!id, // Only run if id is provided
 	});
 }
 
@@ -54,7 +60,7 @@ export function useUpdateCollection() {
 			data,
 		}: {
 			id: Collection["id"];
-			data: CollectionUpdate;
+			data: UpdateCollectionValues;
 		}) => collectionsApi.updateCollection(id, data),
 		onSuccess: ({ data }) => {
 			// Update both the list and the individual collection queries
