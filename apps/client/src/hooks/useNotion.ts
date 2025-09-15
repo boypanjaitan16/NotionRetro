@@ -7,7 +7,6 @@ export const notionKeys = {
 	connection: () => [...notionKeys.all, "connection"] as const,
 	pages: () => [...notionKeys.all, "pages"] as const,
 	rootPages: () => [...notionKeys.all, "root-pages"] as const,
-	databases: () => [...notionKeys.all, "databases"] as const,
 };
 
 export function useUpdateNotionToken() {
@@ -17,6 +16,7 @@ export function useUpdateNotionToken() {
 		mutationFn: notionApi.updateNotionToken,
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: authKeys.user() });
+			queryClient.invalidateQueries({ queryKey: notionKeys.rootPages() });
 		},
 	});
 }
@@ -28,6 +28,7 @@ export function useNotionDisconnect() {
 		mutationFn: notionApi.disconnect,
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: authKeys.user() });
+			queryClient.invalidateQueries({ queryKey: notionKeys.rootPages() });
 		},
 	});
 }

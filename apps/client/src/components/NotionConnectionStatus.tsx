@@ -1,5 +1,5 @@
 import { Button } from "@mantine/core";
-import { IconBrandNotion, IconRefresh } from "@tabler/icons-react";
+import { IconBrandNotion, IconLink } from "@tabler/icons-react";
 import { useEffect } from "react";
 import { useUpdateNotionToken } from "@/hooks/useNotion";
 import { useAuthStore } from "@/stores/authStore";
@@ -39,7 +39,7 @@ export const NotionConnectionStatus: React.FC = () => {
 				</div>
 			</div>
 			<Button
-				leftSection={<IconRefresh />}
+				leftSection={<IconLink />}
 				color="black"
 				onClick={handleConnectNotion}
 				type="button"

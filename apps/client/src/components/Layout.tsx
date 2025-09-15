@@ -39,8 +39,8 @@ export function Layout() {
 					<div className="flex justify-between h-16">
 						<div className="flex">
 							<div className="flex-shrink-0 flex items-center">
-								<Link to="/" className="text-xl font-bold text-blue-600">
-									NotionRetro
+								<Link to="/" className="text-xl font-bold text-blue-500">
+									NOTIONRETRO
 								</Link>
 							</div>
 							<nav className="ml-6 flex space-x-8"></nav>
@@ -52,7 +52,7 @@ export function Layout() {
 										<button
 											type="button"
 											className={classNames(
-												"flex items-center flex-row gap-2 px-5 py-1.5 rounded hover:ring-1",
+												"flex items-center flex-row gap-2 px-3 py-1.5 rounded hover:ring-1",
 												{
 													"ring-green-600": user?.isNotionConnected,
 													"ring-red-500": !user?.isNotionConnected,
@@ -60,11 +60,10 @@ export function Layout() {
 											)}
 										>
 											<span className="font-semibold">{user?.name}</span>
-
-											{user?.isNotionConnected ? (
-												<span className="size-3 rounded-full bg-green-600"></span>
-											) : (
-												<span className="size-3 rounded-full bg-red-500"></span>
+											{user?.notionWorkspaceName && (
+												<span className="text-sm rounded-full bg-green-600 text-white px-5 py-1">
+													{user.notionWorkspaceName}
+												</span>
 											)}
 										</button>
 									</Menu.Target>
