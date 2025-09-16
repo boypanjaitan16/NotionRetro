@@ -1,4 +1,4 @@
-import type { Action, Activity, User } from "@nretro/common/types";
+import type { Activity, User } from "@nretro/common/types";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import db from "../utils/db";
 import { getCollectionById } from "./collectionService";
@@ -165,37 +165,6 @@ export async function publishToNotion(
 			},
 		}),
 	);
-	const actionsBodyBlocks = (actions || []).map((action: Action) => ({
-		object: "block",
-		type: "table_row",
-		table_row: {
-			cells: [
-				[
-					{
-						type: "text",
-						text: {
-							content: action.title,
-							link: {
-								url: "https://google.com",
-							},
-						},
-					},
-				],
-				[{ type: "text", text: { content: action.dueDate } }],
-				[{ type: "text", text: { content: action.assignee } }],
-				[{ type: "text", text: { content: action.priority } }],
-				[
-					{
-						type: "text",
-						text: {
-							content:
-								action.status === "COMPLETED" ? "✅ Done" : "❌ Not Done",
-						},
-					},
-				],
-			],
-		},
-	}));
 	const children = [
 		{
 			object: "block",
@@ -272,41 +241,12 @@ export async function publishToNotion(
 			},
 		},
 		{
+			//extra space
 			object: "block",
-			type: "heading_3",
-			heading_3: {
-				rich_text: [{ type: "text", text: { content: "New Actions" } }],
+			type: "paragraph",
+			paragraph: {
+				rich_text: [{ type: "text", text: { content: "" } }],
 			},
-		},
-		{
-			object: "block",
-			type: "table",
-			table: {
-				table_width: 5,
-				has_column_header: true,
-				has_row_header: false,
-				children: [
-					{
-						object: "block",
-						type: "table_row",
-						table_row: {
-							cells: [
-								[{ type: "text", text: { content: "Action" } }],
-								[{ type: "text", text: { content: "Due Date" } }],
-								[{ type: "text", text: { content: "Assigned to" } }],
-								[{ type: "text", text: { content: "Priority" } }],
-								[{ type: "text", text: { content: "Status" } }],
-							],
-						},
-					},
-					...actionsBodyBlocks,
-				],
-			},
-		},
-		{
-			object: "block",
-			type: "divider",
-			divider: {},
 		},
 	];
 
@@ -334,7 +274,7 @@ export async function publishToNotion(
 		"New Actions",
 		true,
 		{
-			Done: {
+			Completed: {
 				checkbox: {},
 			},
 			Action: {
@@ -372,7 +312,7 @@ export async function publishToNotion(
 
 	for (const action of actions) {
 		await insertDatabaseRow(notionAccessToken, _newActions.id, {
-			Done: {
+			Completed: {
 				checkbox: action.status === "COMPLETED",
 			},
 			Action: {
