@@ -13,5 +13,6 @@ export interface Action {
 	title: string;
 	assignee: string;
 	priority: string;
+	status: string;
 	dueDate: string;
 }

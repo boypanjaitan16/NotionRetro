@@ -13,6 +13,7 @@ export const createActivitySchema = z.object({
 				title: z.string().min(1, { message: "Action title is required" }),
 				assignee: z.string().min(1, { message: "Assignee is required" }),
 				priority: z.string().min(1, { message: "Priority is required" }),
+				status: z.string().min(1, { message: "Status is required" }),
 				dueDate: z.string().min(1, { message: "Due date is required" }),
 			}),
 		)
@@ -32,6 +33,7 @@ export const updateActivitySchema = z.object({
 				title: z.string().min(1, { message: "Action title is required" }),
 				assignee: z.string().min(1, { message: "Assignee is required" }),
 				priority: z.string().min(1, { message: "Priority is required" }),
+				status: z.string().min(1, { message: "Status is required" }),
 				dueDate: z.string().min(1, { message: "Due date is required" }),
 			}),
 		)

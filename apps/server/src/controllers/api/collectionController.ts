@@ -1,4 +1,5 @@
 import { asInt } from "@nretro/common/utils";
+import { AxiosError } from "axios";
 import type { Request, Response } from "express";
 import * as activityService from "../../services/activityService";
 import * as collectionService from "../../services/collectionService";
@@ -82,6 +83,10 @@ export async function createCollection(req: Request, res: Response) {
 
 		return res.status(201).json(collection);
 	} catch (error) {
+		if (error instanceof AxiosError) {
+			console.log(error.response?.data);
+		}
+
 		console.error("Create collection error:", error);
 		return res
 			.status(500)

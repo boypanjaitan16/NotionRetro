@@ -1,5 +1,5 @@
 {
-	"name": "notionretro",
+	"name": "@notionretro/server",
 	"version": "1.0.0",
 	"description": "Notion integration app",
 	"main": "index.js",

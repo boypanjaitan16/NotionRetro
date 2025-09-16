@@ -39,6 +39,7 @@ const AddActivityPage = () => {
 					assignee: "",
 					priority: "",
 					dueDate: "",
+					status: "INPROGRESS",
 				},
 			],
 		},
@@ -137,7 +138,7 @@ const AddActivityPage = () => {
 					<Fieldset legend="Actions">
 						<div className="flex flex-col gap-3">
 							{form.values.actions.map((_, index) => (
-								<div key={`action-${index}`} className="grid grid-cols-4 gap-4">
+								<div key={`action-${index}`} className="grid grid-cols-5 gap-4">
 									<TextInput
 										{...form.getInputProps(`actions.${index}.title`)}
 										key={form.key(`actions.${index}.title`)}
@@ -162,6 +163,17 @@ const AddActivityPage = () => {
 											{ value: "High", label: "High" },
 										]}
 									/>
+									<Select
+										{...form.getInputProps(`actions.${index}.status`)}
+										key={form.key(`actions.${index}.status`)}
+										withAsterisk
+										label="Status"
+										data={[
+											{ value: "INPROGRESS", label: "In Progress" },
+											{ value: "COMPLETED", label: "Completed" },
+										]}
+										defaultValue="INPROGRESS"
+									/>
 									<div className="flex flex-row gap-3">
 										<DateInput
 											{...form.getInputProps(`actions.${index}.dueDate`)}
@@ -169,6 +181,7 @@ const AddActivityPage = () => {
 											label="Due Date"
 											withAsterisk
 											placeholder="Select date"
+											className="w-full"
 										/>
 										{form.values.actions.length > 1 && (
 											<div className="flex items-start pt-6 justify-end">
@@ -213,7 +226,13 @@ const AddActivityPage = () => {
 									console.log(form.values);
 									form.setFieldValue("actions", [
 										...form.values.actions,
-										{ title: "", assignee: "", priority: "", dueDate: "" },
+										{
+											title: "",
+											assignee: "",
+											priority: "",
+											dueDate: "",
+											status: "INPROGRESS",
+										},
 									]);
 								}}
 							>

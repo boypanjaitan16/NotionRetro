@@ -3,7 +3,9 @@ import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import db from "../utils/db";
 import { getCollectionById } from "./collectionService";
 import {
+	createDatabase,
 	createNotionPage,
+	insertDatabaseRow,
 	removeNotionPage,
 	updateNotionPage,
 } from "./notionService";
@@ -168,10 +170,29 @@ export async function publishToNotion(
 		type: "table_row",
 		table_row: {
 			cells: [
-				[{ type: "text", text: { content: action.title } }],
+				[
+					{
+						type: "text",
+						text: {
+							content: action.title,
+							link: {
+								url: "https://google.com",
+							},
+						},
+					},
+				],
 				[{ type: "text", text: { content: action.dueDate } }],
 				[{ type: "text", text: { content: action.assignee } }],
 				[{ type: "text", text: { content: action.priority } }],
+				[
+					{
+						type: "text",
+						text: {
+							content:
+								action.status === "COMPLETED" ? "✅ Done" : "❌ Not Done",
+						},
+					},
+				],
 			],
 		},
 	}));
@@ -240,6 +261,20 @@ export async function publishToNotion(
 			object: "block",
 			type: "heading_3",
 			heading_3: {
+				rich_text: [{ type: "text", text: { content: "Existing Actions" } }],
+			},
+		},
+		{
+			object: "block",
+			type: "paragraph",
+			paragraph: {
+				rich_text: [{ type: "text", text: { content: "No existing actions" } }],
+			},
+		},
+		{
+			object: "block",
+			type: "heading_3",
+			heading_3: {
 				rich_text: [{ type: "text", text: { content: "New Actions" } }],
 			},
 		},
@@ -247,7 +282,7 @@ export async function publishToNotion(
 			object: "block",
 			type: "table",
 			table: {
-				table_width: 4,
+				table_width: 5,
 				has_column_header: true,
 				has_row_header: false,
 				children: [
@@ -260,12 +295,18 @@ export async function publishToNotion(
 								[{ type: "text", text: { content: "Due Date" } }],
 								[{ type: "text", text: { content: "Assigned to" } }],
 								[{ type: "text", text: { content: "Priority" } }],
+								[{ type: "text", text: { content: "Status" } }],
 							],
 						},
 					},
 					...actionsBodyBlocks,
 				],
 			},
+		},
+		{
+			object: "block",
+			type: "divider",
+			divider: {},
 		},
 	];
 
@@ -287,6 +328,88 @@ export async function publishToNotion(
 		);
 	}
 
+	const _newActions = await createDatabase(
+		notionAccessToken,
+		page.id,
+		"New Actions",
+		true,
+		{
+			Done: {
+				checkbox: {},
+			},
+			Action: {
+				title: {},
+			},
+			"Due Date": {
+				date: {},
+			},
+			"Assigned To": {
+				rich_text: {},
+			},
+			Priority: {
+				select: {
+					options: [
+						{
+							id: "LOW",
+							name: "Low",
+							color: "green",
+						},
+						{
+							id: "MEDIUM",
+							name: "Medium",
+							color: "yellow",
+						},
+						{
+							id: "HIGH",
+							name: "High",
+							color: "red",
+						},
+					],
+				},
+			},
+		},
+	);
+
+	for (const action of actions) {
+		await insertDatabaseRow(notionAccessToken, _newActions.id, {
+			Done: {
+				checkbox: action.status === "COMPLETED",
+			},
+			Action: {
+				title: [
+					{
+						text: {
+							content: action.title,
+							link: {
+								url: "https://google.com",
+							},
+						},
+					},
+				],
+			},
+			"Due Date": {
+				date: {
+					start: action.dueDate,
+				},
+			},
+			"Assigned To": {
+				rich_text: [
+					{
+						text: {
+							content: action.assignee,
+						},
+					},
+				],
+			},
+			Priority: {
+				select: {
+					name: action.priority,
+				},
+			},
+		});
+	}
+
 	await updateActivity(activityId, { pageId: page.id });
+
 	return page;
 }

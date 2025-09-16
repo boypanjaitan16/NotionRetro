@@ -1,4 +1,5 @@
 import { asInt } from "@nretro/common/utils";
+import { AxiosError } from "axios";
 import type { Request, Response } from "express";
 import * as activityService from "../../services/activityService";
 import * as collectionService from "../../services/collectionService";
@@ -182,7 +183,11 @@ export async function publishActivityToNotion(req: Request, res: Response) {
 			.status(500)
 			.json({ error: { message: "Failed to publish activity to Notion" } });
 	} catch (error) {
-		console.error("Publish activity to Notion error:", error);
+		if (error instanceof AxiosError) {
+			console.log(error.response?.data);
+		}
+
+		console.error("Publish activity to Notion error:");
 		return res
 			.status(500)
 			.json({ error: { message: "Failed to publish activity to Notion" } });

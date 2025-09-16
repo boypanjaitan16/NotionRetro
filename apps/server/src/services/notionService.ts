@@ -46,76 +46,48 @@ export async function exchangeCodeForToken(
 	redirectUri: string,
 ): Promise<NotionTokenResponse> {
 	const url = `${NOTION_API_BASE_URL}/oauth/token`;
-	try {
-		console.log(`Exchanging code for token with redirect URI: ${redirectUri}`);
-		const response = await axios.post(
-			url,
-			{
-				grant_type: "authorization_code",
-				code,
-				redirect_uri: redirectUri,
-			},
-			{
-				auth: {
-					username: clientId,
-					password: clientSecret,
-				},
-				headers: {
-					"Content-Type": "application/json",
-				},
-			},
-		);
 
-		console.log("Successfully exchanged code for token");
-		return response.data;
-	} catch (error: any) {
-		console.error("Error exchanging code for token:", error);
-		if (error.response) {
-			console.error("Error response status:", error.response.status);
-			console.error(
-				"Error response data:",
-				JSON.stringify(error.response.data, null, 2),
-			);
-		}
-		throw error;
-	}
+	console.log(`Exchanging code for token with redirect URI: ${redirectUri}`);
+	const response = await axios.post(
+		url,
+		{
+			grant_type: "authorization_code",
+			code,
+			redirect_uri: redirectUri,
+		},
+		{
+			auth: {
+				username: clientId,
+				password: clientSecret,
+			},
+			headers: {
+				"Content-Type": "application/json",
+			},
+		},
+	);
+
+	console.log("Successfully exchanged code for token");
+	return response.data;
 }
 
 export async function validateNotionToken(
 	accessToken: string,
 ): Promise<boolean> {
-	try {
-		// Try to make a simple API call to verify the token is still valid
-		await axios.post(
-			`${NOTION_API_BASE_URL}/search`,
-			{ page_size: 1 },
-			{
-				headers: {
-					Authorization: `Bearer ${accessToken}`,
-					"Notion-Version": "2022-06-28",
-					"Content-Type": "application/json",
-				},
+	// Try to make a simple API call to verify the token is still valid
+	await axios.post(
+		`${NOTION_API_BASE_URL}/search`,
+		{ page_size: 1 },
+		{
+			headers: {
+				Authorization: `Bearer ${accessToken}`,
+				"Notion-Version": "2022-06-28",
+				"Content-Type": "application/json",
 			},
-		);
+		},
+	);
 
-		// If we get here, the token is valid
-		return true;
-	} catch (error: any) {
-		// Check if error is due to authentication
-		if (
-			error.response &&
-			(error.response.status === 401 || error.response.status === 403)
-		) {
-			console.log(
-				"Notion token validation failed: Token is invalid or expired",
-			);
-			return false;
-		}
-
-		// For other errors, assume token is valid but there's some other issue
-		console.error("Error validating Notion token:", error);
-		return true;
-	}
+	// If we get here, the token is valid
+	return true;
 }
 
 export async function isTokenExpired(
@@ -137,177 +109,158 @@ export async function getDatabases(accessToken: string) {
 	const url = `${NOTION_API_BASE_URL}/search`;
 	console.log("Fetching Notion databases...");
 
-	try {
-		const response = await axios.post(
-			url,
-			{
-				filter: {
-					value: "database",
-					property: "object",
-				},
-				sort: {
-					direction: "descending",
-					timestamp: "last_edited_time",
-				},
+	const response = await axios.post(
+		url,
+		{
+			filter: {
+				value: "database",
+				property: "object",
 			},
-			{
-				headers: {
-					Authorization: `Bearer ${accessToken}`,
-					"Notion-Version": "2022-06-28",
-					"Content-Type": "application/json",
-				},
+			sort: {
+				direction: "descending",
+				timestamp: "last_edited_time",
 			},
-		);
+		},
+		{
+			headers: {
+				Authorization: `Bearer ${accessToken}`,
+				"Notion-Version": "2022-06-28",
+				"Content-Type": "application/json",
+			},
+		},
+	);
 
-		const databases = response.data.results.map((db: any) => ({
-			id: db.id,
-			title: db.title?.[0]?.plain_text || "Untitled Database",
-			url: db.url,
-		}));
+	const databases = response.data.results.map((db: any) => ({
+		id: db.id,
+		title: db.title?.[0]?.plain_text || "Untitled Database",
+		url: db.url,
+	}));
 
-		console.log(
-			`Found ${databases.length} Notion databases:`,
-			databases.map((db: any) => ({ id: db.id, title: db.title })),
-		);
+	console.log(
+		`Found ${databases.length} Notion databases:`,
+		databases.map((db: any) => ({ id: db.id, title: db.title })),
+	);
 
-		return databases;
-	} catch (error) {
-		console.error("Error fetching Notion databases:", error);
-		throw error;
-	}
+	return databases;
 }
 
-export async function createNotionDatabase(accessToken: string, title: string) {
+export async function createDatabase(
+	accessToken: string,
+	parentId: string,
+	title: string,
+	isInline: boolean = false,
+	properties: any = {},
+) {
 	const url = `${NOTION_API_BASE_URL}/databases`;
 
-	try {
-		// First, search for a parent page to create the database in
-		const response = await axios.post(
-			`${NOTION_API_BASE_URL}/search`,
-			{ page_size: 1, filter: { property: "object", value: "page" } },
-			{
-				headers: {
-					Authorization: `Bearer ${accessToken}`,
-					"Notion-Version": "2022-06-28",
-					"Content-Type": "application/json",
-				},
+	// Create the database in the parent page
+	const dbResponse = await axios.post(
+		url,
+		{
+			parent: {
+				type: "page_id",
+				page_id: parentId,
 			},
-		);
-
-		const parentPage = response.data.results[0];
-		if (!parentPage) {
-			throw new Error("No parent page found to create database in");
-		}
-
-		// Create the database in the parent page
-		const dbResponse = await axios.post(
-			url,
-			{
-				parent: {
-					type: "page_id",
-					page_id: parentPage.id,
-				},
-				title: [
-					{
-						type: "text",
-						text: {
-							content: title,
-						},
-					},
-				],
-				properties: {
-					Name: {
-						title: {},
-					},
-					Completed: {
-						checkbox: {},
+			title: [
+				{
+					type: "text",
+					text: {
+						content: title,
 					},
 				},
+			],
+			is_inline: isInline,
+			properties,
+		},
+		{
+			headers: {
+				Authorization: `Bearer ${accessToken}`,
+				"Notion-Version": "2022-06-28",
+				"Content-Type": "application/json",
 			},
-			{
-				headers: {
-					Authorization: `Bearer ${accessToken}`,
-					"Notion-Version": "2022-06-28",
-					"Content-Type": "application/json",
-				},
+		},
+	);
+
+	console.log(`Created database: ${dbResponse.data.id}`);
+
+	return {
+		id: dbResponse.data.id,
+		title: title,
+		url: dbResponse.data.url,
+	};
+}
+
+export async function insertDatabaseRow(
+	accessToken: string,
+	databaseId: string,
+	properties: any = {},
+) {
+	const url = `${NOTION_API_BASE_URL}/pages`;
+
+	const response = await axios.post(
+		url,
+		{
+			parent: { database_id: databaseId },
+			properties,
+		},
+		{
+			headers: {
+				Authorization: `Bearer ${accessToken}`,
+				"Notion-Version": "2022-06-28",
+				"Content-Type": "application/json",
 			},
-		);
+		},
+	);
 
-		console.log(`Created database: ${dbResponse.data.id}`);
+	console.log(`Inserted row into database ${databaseId}: ${response.data.id}`);
 
-		return {
-			id: dbResponse.data.id,
-			title: title,
-			url: dbResponse.data.url,
-		};
-	} catch (error: any) {
-		console.error("Error creating Notion database:", error);
-
-		// Add detailed error logging
-		if (error.response) {
-			console.error("Error response status:", error.response.status);
-			console.error(
-				"Error response data:",
-				JSON.stringify(error.response.data, null, 2),
-			);
-		}
-
-		throw error;
-	}
+	return {
+		id: response.data.id,
+		url: response.data.url,
+	};
 }
 
 export async function updateNotionPage(
-	accessToken: string,
+	notionAccessToken: string,
 	pageId: string,
 	name: string,
 	children: any[] = [],
 ): Promise<{ id: string; title: string; url: string }> {
-	try {
-		console.log(`Updating Notion page ${pageId} with new name`);
+	console.log(`Updating Notion page ${pageId} with new name`);
 
-		const response = await axios.patch(
-			`${NOTION_API_BASE_URL}/pages/${pageId}`,
-			{
-				properties: {
-					title: {
-						title: [
-							{
-								text: {
-									content: name,
-								},
+	const response = await axios.patch(
+		`${NOTION_API_BASE_URL}/pages/${pageId}`,
+		{
+			properties: {
+				title: {
+					title: [
+						{
+							text: {
+								content: name,
 							},
-						],
-					},
+						},
+					],
 				},
 			},
-			{
-				headers: {
-					Authorization: `Bearer ${accessToken}`,
-					"Notion-Version": "2022-06-28",
-					"Content-Type": "application/json",
-				},
+		},
+		{
+			headers: {
+				Authorization: `Bearer ${notionAccessToken}`,
+				"Notion-Version": "2022-06-28",
+				"Content-Type": "application/json",
 			},
-		);
+		},
+	);
 
-		await updateNotionPageChildren(accessToken, pageId, children);
+	if (children.length > 0)
+		await updateNotionPageChildren(notionAccessToken, pageId, children);
 
-		console.log(`Successfully updated Notion page ${pageId}`);
-		return {
-			id: response.data.id,
-			title: name,
-			url: response.data.url,
-		};
-	} catch (error: any) {
-		console.error(`Error updating Notion page ${pageId}:`, error);
-		if (error.response) {
-			console.error("Error response status:", error.response.status);
-			console.error(
-				"Error response data:",
-				JSON.stringify(error.response.data, null, 2),
-			);
-		}
-		throw error;
-	}
+	console.log(`Successfully updated Notion page ${pageId}`);
+	return {
+		id: response.data.id,
+		title: name,
+		url: response.data.url,
+	};
 }
 
 export async function updateNotionPageChildren(
@@ -315,60 +268,48 @@ export async function updateNotionPageChildren(
 	pageId: string,
 	children: any[] = [],
 ): Promise<{ id: string; url: string }> {
-	try {
-		console.log(`Updating Notion page ${pageId} with new children`);
+	console.log(`Updating Notion page ${pageId} with new children`);
 
-		const childrenBlocks = await axios.get(
-			`${NOTION_API_BASE_URL}/blocks/${pageId}/children`,
-			{
-				headers: {
-					Authorization: `Bearer ${accessToken}`,
-					"Notion-Version": "2022-06-28",
-					"Content-Type": "application/json",
-				},
+	const childrenBlocks = await axios.get(
+		`${NOTION_API_BASE_URL}/blocks/${pageId}/children`,
+		{
+			headers: {
+				Authorization: `Bearer ${accessToken}`,
+				"Notion-Version": "2022-06-28",
+				"Content-Type": "application/json",
 			},
-		);
+		},
+	);
 
-		for (const block of childrenBlocks.data?.results ?? []) {
-			await axios.delete(`${NOTION_API_BASE_URL}/blocks/${block.id}`, {
-				headers: {
-					Authorization: `Bearer ${accessToken}`,
-					"Notion-Version": "2022-06-28",
-					"Content-Type": "application/json",
-				},
-			});
-		}
-
-		const response = await axios.patch(
-			`${NOTION_API_BASE_URL}/blocks/${pageId}/children`,
-			{
-				children,
+	for (const block of childrenBlocks.data?.results ?? []) {
+		await axios.delete(`${NOTION_API_BASE_URL}/blocks/${block.id}`, {
+			headers: {
+				Authorization: `Bearer ${accessToken}`,
+				"Notion-Version": "2022-06-28",
+				"Content-Type": "application/json",
 			},
-			{
-				headers: {
-					Authorization: `Bearer ${accessToken}`,
-					"Notion-Version": "2022-06-28",
-					"Content-Type": "application/json",
-				},
-			},
-		);
-
-		console.log(`Successfully updated Notion page children ${pageId}`);
-		return {
-			id: response?.data?.id,
-			url: response?.data?.url,
-		};
-	} catch (error: any) {
-		console.error(`Error updating Notion page children ${pageId}:`, error);
-		if (error.response) {
-			console.error("Error response status:", error.response.status);
-			console.error(
-				"Error response data:",
-				JSON.stringify(error.response.data, null, 2),
-			);
-		}
-		throw error;
+		});
 	}
+
+	const response = await axios.patch(
+		`${NOTION_API_BASE_URL}/blocks/${pageId}/children`,
+		{
+			children,
+		},
+		{
+			headers: {
+				Authorization: `Bearer ${accessToken}`,
+				"Notion-Version": "2022-06-28",
+				"Content-Type": "application/json",
+			},
+		},
+	);
+
+	console.log(`Successfully updated Notion page children ${pageId}`);
+	return {
+		id: response?.data?.id,
+		url: response?.data?.url,
+	};
 }
 
 export async function createNotionPage(
@@ -377,158 +318,122 @@ export async function createNotionPage(
 	parentId: string,
 	children: any[] = [],
 ): Promise<{ id: string; title: string; url: string }> {
-	try {
-		console.log(`Creating Notion page with name: ${name}`);
+	console.log(`Creating Notion page with name: ${name}`);
 
-		const response = await axios.post(
-			`${NOTION_API_BASE_URL}/pages`,
-			{
-				parent: { type: "page_id", page_id: parentId },
-				properties: {
-					title: {
-						title: [
-							{
-								text: {
-									content: name,
-								},
+	const response = await axios.post(
+		`${NOTION_API_BASE_URL}/pages`,
+		{
+			parent: { type: "page_id", page_id: parentId },
+			properties: {
+				title: {
+					title: [
+						{
+							text: {
+								content: name,
 							},
-						],
-					},
-				},
-				children,
-			},
-			{
-				headers: {
-					Authorization: `Bearer ${notionAccessToken}`,
-					"Notion-Version": "2022-06-28",
-					"Content-Type": "application/json",
+						},
+					],
 				},
 			},
-		);
+			children,
+		},
+		{
+			headers: {
+				Authorization: `Bearer ${notionAccessToken}`,
+				"Notion-Version": "2022-06-28",
+				"Content-Type": "application/json",
+			},
+		},
+	);
 
-		console.log(`Successfully created new page with ID: ${response.data.id}`);
+	console.log(`Successfully created new page with ID: ${response.data.id}`);
 
-		return {
-			id: response.data.id,
-			title: name,
-			url: response.data.url,
-		};
-	} catch (error: any) {
-		console.error("Error creating Notion page:", error);
-
-		// Add detailed error logging
-		if (error.response) {
-			console.error("Error response status:", error.response.status);
-			console.error(
-				"Error response data:",
-				JSON.stringify(error.response.data, null, 2),
-			);
-		}
-
-		throw error;
-	}
+	return {
+		id: response.data.id,
+		title: name,
+		url: response.data.url,
+	};
 }
 
 export async function getNotionPages(
 	accessToken: string,
 	rootPages?: boolean,
 ): Promise<NotionPage[]> {
-	try {
-		console.log("Fetching Notion pages...");
+	console.log("Fetching Notion pages...");
 
-		const response = await axios.post(
-			`${NOTION_API_BASE_URL}/search`,
-			{
-				filter: {
-					property: "object",
-					value: "page",
-				},
-				sort: {
-					direction: "descending",
-					timestamp: "last_edited_time",
-				},
+	const response = await axios.post(
+		`${NOTION_API_BASE_URL}/search`,
+		{
+			filter: {
+				property: "object",
+				value: "page",
 			},
-			{
-				headers: {
-					Authorization: `Bearer ${accessToken}`,
-					"Notion-Version": "2022-06-28",
-					"Content-Type": "application/json",
-					"Cache-Control": "no-cache, no-store, must-revalidate",
-					Pragma: "no-cache",
-					Expires: "0",
-				},
+			sort: {
+				direction: "descending",
+				timestamp: "last_edited_time",
 			},
-		);
+		},
+		{
+			headers: {
+				Authorization: `Bearer ${accessToken}`,
+				"Notion-Version": "2022-06-28",
+				"Content-Type": "application/json",
+				"Cache-Control": "no-cache, no-store, must-revalidate",
+				Pragma: "no-cache",
+				Expires: "0",
+			},
+		},
+	);
 
-		console.log(
-			`Retrieved ${response.data.results.length} total pages from Notion`,
-		);
+	console.log(
+		`Retrieved ${response.data.results.length} total pages from Notion`,
+	);
 
-		const pages = (
-			rootPages
-				? response.data.results
-						// Filter to only include pages where parent.type is "workspace"
-						.filter((page: any) => {
-							const isWorkspacePage = page.parent?.type === "workspace";
-							if (!isWorkspacePage) {
-								console.log(
-									`Filtering out page with parent type: ${page.parent?.type}`,
-								);
-							}
-							return isWorkspacePage;
-						})
-				: response.data.results
-		).map((page: any) => {
-			let title = "Untitled Page";
-			if (page.properties?.title?.title) {
-				const titleArray = page.properties.title.title;
-				if (titleArray.length > 0 && titleArray[0].plain_text) {
-					title = titleArray[0].plain_text;
-				}
+	const pages = (
+		rootPages
+			? response.data.results
+					// Filter to only include pages where parent.type is "workspace"
+					.filter((page: any) => {
+						const isWorkspacePage = page.parent?.type === "workspace";
+						if (!isWorkspacePage) {
+							console.log(
+								`Filtering out page with parent type: ${page.parent?.type}`,
+							);
+						}
+						return isWorkspacePage;
+					})
+			: response.data.results
+	).map((page: any) => {
+		let title = "Untitled Page";
+		if (page.properties?.title?.title) {
+			const titleArray = page.properties.title.title;
+			if (titleArray.length > 0 && titleArray[0].plain_text) {
+				title = titleArray[0].plain_text;
 			}
+		}
 
-			return {
-				id: page.id,
-				title: title,
-				url: page.url,
-				parent: page.parent,
-			};
-		});
+		return {
+			id: page.id,
+			title: title,
+			url: page.url,
+			parent: page.parent,
+		};
+	});
 
+	console.log(
+		`Found ${pages.length} Notion pages that are direct children of the workspace`,
+	);
+
+	// If no workspace pages were found, log a helpful message
+	if (pages.length === 0) {
 		console.log(
-			`Found ${pages.length} Notion pages that are direct children of the workspace`,
+			"No workspace pages found. Make sure you have created pages directly in your workspace.",
 		);
-
-		// If no workspace pages were found, log a helpful message
-		if (pages.length === 0) {
-			console.log(
-				"No workspace pages found. Make sure you have created pages directly in your workspace.",
-			);
-		}
-
-		return pages;
-	} catch (error: any) {
-		console.error("Error fetching Notion pages:", error);
-
-		// Add detailed error logging
-		if (error.response) {
-			console.error("Error response status:", error.response.status);
-			console.error(
-				"Error response data:",
-				JSON.stringify(error.response.data, null, 2),
-			);
-		}
-
-		throw error;
 	}
+
+	return pages;
 }
 
-/**
- * Removes a Notion page by its ID
- * @param accessToken The Notion API access token
- * @param pageId The ID of the page to remove
- * @returns A boolean indicating whether the operation was successful
- */
 export async function removeNotionPage(
 	accessToken: string,
 	pageId: string,
@@ -654,28 +559,15 @@ export async function isPageExists(
 	accessToken: string,
 	pageId: string,
 ): Promise<boolean> {
-	try {
-		console.log(`Checking if Notion page ${pageId} exists`);
+	console.log(`Checking if Notion page ${pageId} exists`);
 
-		await axios.get(`${NOTION_API_BASE_URL}/pages/${pageId}`, {
-			headers: {
-				Authorization: `Bearer ${accessToken}`,
-				"Notion-Version": "2022-06-28",
-			},
-		});
+	await axios.get(`${NOTION_API_BASE_URL}/pages/${pageId}`, {
+		headers: {
+			Authorization: `Bearer ${accessToken}`,
+			"Notion-Version": "2022-06-28",
+		},
+	});
 
-		console.log(`Notion page ${pageId} exists`);
-		return true;
-	} catch (error: any) {
-		if (error.response && error.response.status === 404) {
-			console.log(`Notion page ${pageId} does not exist`);
-			return false;
-		}
-
-		console.error(`Error checking existence of Notion page ${pageId}:`, error);
-		if (error.response) {
-			console.error("Error response status:", error.response.status);
-		}
-		throw error;
-	}
+	console.log(`Notion page ${pageId} exists`);
+	return true;
 }
